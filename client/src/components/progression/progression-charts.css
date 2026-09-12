@@ -650,6 +650,22 @@
   border-color: transparent;
 }
 
+.training-heatmap__cell--rest {
+  background: color-mix(in srgb, var(--go-accent-secondary) 55%, var(--go-surface-sunken));
+  border-color: transparent;
+}
+
+.training-heatmap__cell--missed {
+  background: var(--go-surface-sunken);
+  border-color: var(--go-border-soft);
+}
+
+.training-heatmap__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .training-heatmap__day-popover {
   position: absolute;
   transform: translateX(-50%);

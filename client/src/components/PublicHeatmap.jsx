@@ -1,7 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getHeatmapDay } from "../services/socialService";
 import useModalEscapeAndFocus from "../hooks/useModalEscapeAndFocus";
+import { ACTIVITY_STATE, classifyActivityDays, summarizeActivity } from "../utils/activityStates";
 import "./progression/progression-charts.css";
+
+const STATE_LABEL = {
+  [ACTIVITY_STATE.TRAINED]: "Trained",
+  [ACTIVITY_STATE.REST]: "Rest",
+  [ACTIVITY_STATE.MISSED]: "Missed",
+};
+
+function cellStateClass(state, tier) {
+  if (state === ACTIVITY_STATE.REST) return "training-heatmap__cell--rest";
+  if (state === ACTIVITY_STATE.MISSED) return "training-heatmap__cell--missed";
+  return `training-heatmap__cell--t${tier}`;
+}
 
 const MONTH_LABELS = [
   "January", "February", "March", "April", "May", "June",
@@ -12,7 +25,7 @@ const MONTH_GAP = 6;
 const COL_PITCH = 12;
 const LABELS_OFFSET = 32;
 
-function PublicHeatmap({ days, trainedDays, totalDays, year, rolling, username, canViewDetail }) {
+function PublicHeatmap({ days, totalDays, year, rolling, username, canViewDetail }) {
   const containerRef = useRef(null);
   const [activeDay, setActiveDay] = useState(null);
   const [dayDetail, setDayDetail] = useState(null);
@@ -45,9 +58,15 @@ function PublicHeatmap({ days, trainedDays, totalDays, year, rolling, username, 
     return groups;
   }, [days]);
 
-  const summary = rolling === false && year
-    ? `${trainedDays} of ${totalDays} days trained in ${year}`
-    : `${trainedDays} of the last ${totalDays} days trained`;
+  const dayStates = useMemo(
+    () => classifyActivityDays(days.map((d) => ({ key: d.date, date: d.date, trained: d.tier > 0 }))),
+    [days]
+  );
+
+  const counts = useMemo(() => summarizeActivity(dayStates), [dayStates]);
+
+  const window = rolling === false && year ? `in ${year}` : `in the last ${totalDays} days`;
+  const summary = `${counts.trained} trained · ${counts.rest} rest · ${counts.missed} missed ${window}`;
 
   const closeDayPopover = useCallback(() => setActiveDay(null), []);
   useModalEscapeAndFocus(!!activeDay, closeDayPopover);
@@ -132,34 +151,39 @@ function PublicHeatmap({ days, trainedDays, totalDays, year, rolling, username, 
                   }`}
                   key={`${group.label}-${groupIndex}-${colIndex}`}
                 >
-                  {col.map((day, rowIndex) =>
-                    day ? (
+                  {col.map((day, rowIndex) => {
+                    if (!day) {
+                      return (
+                        <div
+                          key={`blank-${group.label}-${groupIndex}-${colIndex}-${rowIndex}`}
+                          className="training-heatmap__cell training-heatmap__cell--blank"
+                        />
+                      );
+                    }
+
+                    const state = dayStates.get(day.date);
+                    const dateLabel = new Date(day.date).toLocaleDateString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    });
+                    const stateLabel = STATE_LABEL[state];
+                    const fullLabel = stateLabel ? `${dateLabel} — ${stateLabel}` : dateLabel;
+
+                    return (
                       <button
                         type="button"
                         key={day.date}
-                        className={`training-heatmap__cell training-heatmap__cell--t${day.tier}${
+                        className={`training-heatmap__cell ${cellStateClass(state, day.tier)}${
                           canViewDetail ? " training-heatmap__cell--clickable" : ""
                         }`}
-                        title={new Date(day.date).toLocaleDateString(undefined, {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
+                        title={fullLabel}
                         onClick={canViewDetail ? (e) => handleCellClick(day, e) : undefined}
                         tabIndex={canViewDetail ? 0 : -1}
-                        aria-label={new Date(day.date).toLocaleDateString(undefined, {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
+                        aria-label={fullLabel}
                       />
-                    ) : (
-                      <div
-                        key={`blank-${group.label}-${groupIndex}-${colIndex}-${rowIndex}`}
-                        className="training-heatmap__cell training-heatmap__cell--blank"
-                      />
-                    )
-                  )}
+                    );
+                  })}
                 </div>
               ))
             )}
@@ -209,11 +233,18 @@ function PublicHeatmap({ days, trainedDays, totalDays, year, rolling, username, 
       <div className="training-heatmap__footer">
         <span className="training-heatmap__footer-hint">{summary}</span>
         <div className="training-heatmap__legend" aria-hidden="true">
-          <span>Less</span>
-          {[0, 1, 2, 3, 4].map((t) => (
-            <span key={t} className={`training-heatmap__legend-swatch training-heatmap__cell--t${t}`} />
-          ))}
-          <span>More</span>
+          <span className="training-heatmap__legend-item">
+            <span className="training-heatmap__legend-swatch training-heatmap__cell--t3" />
+            Trained
+          </span>
+          <span className="training-heatmap__legend-item">
+            <span className="training-heatmap__legend-swatch training-heatmap__cell--rest" />
+            Rest
+          </span>
+          <span className="training-heatmap__legend-item">
+            <span className="training-heatmap__legend-swatch training-heatmap__cell--missed" />
+            Missed
+          </span>
         </div>
       </div>
     </div>

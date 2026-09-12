@@ -1,9 +1,22 @@
 import { useMemo, useState } from "react";
 import { dateKey, startOfWeek, MONTH_LABELS } from "../../utils/dateUtils";
+import { ACTIVITY_STATE, classifyActivityDays, summarizeActivity } from "../../utils/activityStates";
 import "./progression-charts.css";
 
 const WEEKS = 53;
 const DAY_ROW_LABELS = ["", "Mon", "", "Wed", "", "Fri", ""];
+
+const STATE_LABEL = {
+  [ACTIVITY_STATE.TRAINED]: "Trained",
+  [ACTIVITY_STATE.REST]: "Rest",
+  [ACTIVITY_STATE.MISSED]: "Missed",
+};
+
+function cellStateClass(state, volume, max) {
+  if (state === ACTIVITY_STATE.REST) return "training-heatmap__cell--rest";
+  if (state === ACTIVITY_STATE.MISSED) return "training-heatmap__cell--missed";
+  return `training-heatmap__cell--t${tierFor(volume, max)}`;
+}
 
 function tierFor(volume, max) {
   if (!volume || !max) return 0;
@@ -17,7 +30,7 @@ function tierFor(volume, max) {
 function TrainingHeatmap({ sessions = [] }) {
   const [hovered, setHovered] = useState(null);
 
-  const { weeks, maxVolume, trainedDays, totalDays } = useMemo(() => {
+  const { weeks, maxVolume, flatDays, totalDays } = useMemo(() => {
     const volumeByDay = new Map();
     sessions.forEach((s) => {
       const key = dateKey(s.date);
@@ -48,10 +61,17 @@ function TrainingHeatmap({ sessions = [] }) {
     return {
       weeks: cols,
       maxVolume: max,
-      trainedDays: days.filter((d) => d.volume > 0).length,
+      flatDays: days,
       totalDays: days.length,
     };
   }, [sessions]);
+
+  const dayStates = useMemo(
+    () => classifyActivityDays(flatDays.map((d) => ({ key: d.key, date: d.date, trained: d.volume > 0 }))),
+    [flatDays]
+  );
+
+  const counts = useMemo(() => summarizeActivity(dayStates), [dayStates]);
 
   const monthMarkers = useMemo(() => {
     const markers = [];
@@ -66,7 +86,7 @@ function TrainingHeatmap({ sessions = [] }) {
     return markers;
   }, [weeks]);
 
-  const summary = `${trainedDays} of the last ${totalDays} days trained`;
+  const summary = `${counts.trained} trained · ${counts.rest} rest · ${counts.missed} missed in the last ${totalDays} days`;
 
   return (
     <div className="training-heatmap">
@@ -92,15 +112,21 @@ function TrainingHeatmap({ sessions = [] }) {
           <div className="training-heatmap__grid" role="img" aria-label={summary}>
             {weeks.map((col, colIndex) => (
               <div className="training-heatmap__col" key={colIndex}>
-                {col.map((day) => (
-                  <div
-                    key={day.key}
-                    className={`training-heatmap__cell training-heatmap__cell--t${tierFor(day.volume, maxVolume)}`}
-                    title={`${day.date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })} — ${day.volume ? `${Math.round(day.volume).toLocaleString()} kg` : "No training"}`}
-                    onMouseEnter={() => setHovered(day)}
-                    onMouseLeave={() => setHovered(null)}
-                  />
-                ))}
+                {col.map((day) => {
+                  const state = dayStates.get(day.key);
+                  const detail = day.volume
+                    ? `${Math.round(day.volume).toLocaleString()} kg`
+                    : STATE_LABEL[state] || "No training";
+                  return (
+                    <div
+                      key={day.key}
+                      className={`training-heatmap__cell ${cellStateClass(state, day.volume, maxVolume)}`}
+                      title={`${day.date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })} — ${detail}`}
+                      onMouseEnter={() => setHovered(day)}
+                      onMouseLeave={() => setHovered(null)}
+                    />
+                  );
+                })}
               </div>
             ))}
           </div>
@@ -116,11 +142,18 @@ function TrainingHeatmap({ sessions = [] }) {
             : summary}
         </span>
         <div className="training-heatmap__legend" aria-hidden="true">
-          <span>Less</span>
-          {[0, 1, 2, 3, 4].map((t) => (
-            <span key={t} className={`training-heatmap__legend-swatch training-heatmap__cell--t${t}`} />
-          ))}
-          <span>More</span>
+          <span className="training-heatmap__legend-item">
+            <span className="training-heatmap__legend-swatch training-heatmap__cell--t3" />
+            Trained
+          </span>
+          <span className="training-heatmap__legend-item">
+            <span className="training-heatmap__legend-swatch training-heatmap__cell--rest" />
+            Rest
+          </span>
+          <span className="training-heatmap__legend-item">
+            <span className="training-heatmap__legend-swatch training-heatmap__cell--missed" />
+            Missed
+          </span>
         </div>
       </div>
     </div>
