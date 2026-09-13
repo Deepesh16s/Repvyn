@@ -129,7 +129,7 @@
 </div>
 
 <nav class="toc" aria-label="Sections"><div class="in">
-  <a href="#pitch">Our 30-second answer</a>
+  <a href="#pitch">Preview</a>
   <a href="#flow">How a request flows</a>
   <a href="#layers">Our five layers</a>
   <a href="#frontend">Frontend</a>
@@ -141,7 +141,7 @@
   <a href="#mobile">Mobile</a>
   <a href="#testing">Testing</a>
   <a href="#deploy">Deployment &amp; CI</a>
-  <a href="#hard">Questions we've prepared for</a>
+  <a href="#hard">Common questions and doubts</a>
   <a href="#appendix">Appendix: terms</a>
 </div></nav>
 
@@ -149,7 +149,7 @@
 
   <section id="pitch">
     <div class="sec-head">
-      <h2>Our 30-second answer</h2>
+      <h2>Preview</h2>
       <p>What we say when a judge asks us to walk through the architecture. Everything after this is what we fall back on if they dig deeper.</p>
     </div>
     <p class="pitch">So we're JavaScript from front to back. The web app's built in React with Vite, and it's served off Vercel's edge network, so it loads fast wherever you are. On mobile we're using React Native through Expo, and that side also pulls in wearable data from Android Health Connect — though we'll be upfront that the mobile app is a working prototype right now, not something we'd hand a judge to install; more on that later. Both the web app and the API talk to one backend — a Node and Express API we run on Render, with 102 REST endpoints spread across 16 route modules, plus a WebSocket for live chat. All our data lives in MongoDB through Mongoose: 26 collections, 53 indexes so lookups stay fast. For the things we didn't think we should build ourselves, we lean on outside services — Cloudinary handles images, Resend sends email, and notifications go out through standard web push. And every single request has to get past security headers, a locked-down CORS policy, rate limits, and token verification before it touches anything. The analytics you'd see in the app are actually just deterministic formulas we run right in the browser — there's no AI model anywhere in this, and that's on purpose. And nothing we write ships without going through GitHub Actions first: syntax checks, real tests against an actual in-memory MongoDB, a production build, and full browser tests end to end.</p>
@@ -704,7 +704,7 @@
 
   <section id="hard">
     <div class="sec-head">
-      <h2>Questions we've prepared for</h2>
+      <h2>Our answer to some common questions and doubts</h2>
       <p>The ones we think a technical judge is most likely to ask, with the honest answer we'd actually give. We'd rather admit a trade-off than get caught bluffing on one.</p>
     </div>
     <div class="qa">
