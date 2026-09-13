@@ -84,7 +84,7 @@ function UserSearch() {
         <input
           className="user-search-input"
           type="text"
-          placeholder="Search by username"
+          placeholder="Search by username or name"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />

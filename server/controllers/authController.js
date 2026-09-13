@@ -487,7 +487,7 @@ exports.dismissUsernamePrompt = async (req, res) => {
 
 exports.updateProfileVisibility = async (req, res) => {
   try {
-    const { profileVisibility, showTrainingActivity } = req.body;
+    const { profileVisibility, showTrainingActivity, discoverableByName } = req.body;
     const update = {};
 
     if (profileVisibility !== undefined) {
@@ -499,6 +499,10 @@ exports.updateProfileVisibility = async (req, res) => {
 
     if (showTrainingActivity !== undefined) {
       update.showTrainingActivity = !!showTrainingActivity;
+    }
+
+    if (discoverableByName !== undefined) {
+      update.discoverableByName = !!discoverableByName;
     }
 
     if (Object.keys(update).length === 0) {

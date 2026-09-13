@@ -7,7 +7,7 @@ const Badge = require("../models/Badge");
 const Activity = require("../models/Activity");
 const { normalize: normalizeUsername } = require("../utils/username");
 const { toPublicUser: basePublicUser } = require("../utils/publicUser");
-const { isBlockedEitherWay } = require("../utils/blocking");
+const { isBlockedEitherWay, getViewerBlockSet } = require("../utils/blocking");
 const { canViewContent } = require("../utils/contentVisibility");
 const {
   dateKey,
@@ -88,34 +88,61 @@ async function getViewerPendingRequestSet(viewerId, targetIds) {
   return new Set(requests.map((r) => String(r.target)));
 }
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 exports.searchUsers = async (req, res) => {
   try {
-    const query = String(req.query.q || "")
-      .toLowerCase()
-      .replace(/[^a-z0-9_]/g, "");
+    const rawQuery = String(req.query.q || "").trim();
+    const usernameQuery = rawQuery.toLowerCase().replace(/[^a-z0-9_]/g, "");
 
-    if (!query) {
+    if (!rawQuery) {
       return res.status(200).json({ users: [] });
     }
 
-    const limit = Math.min(Number(req.query.limit) || MAX_SEARCH_RESULTS, MAX_SEARCH_RESULTS);
-
-    const users = await User.find({ username: { $regex: `^${query}` } })
-      .select("username name picture")
-      .limit(limit);
-
     const viewerId = req.user?._id;
-    const targetIds = users.map((u) => u._id);
-    const [followingSet, followedBySet, pendingRequestSet] = await Promise.all([
+
+    const [usernameMatch, nameMatches] = await Promise.all([
+      usernameQuery
+        ? User.findOne({ username: usernameQuery }).select("username name picture profileVisibility")
+        : null,
+      User.find({
+        profileVisibility: "public",
+        discoverableByName: true,
+        name: { $regex: escapeRegExp(rawQuery), $options: "i" },
+      })
+        .select("username name picture profileVisibility")
+        .limit(MAX_SEARCH_RESULTS),
+    ]);
+
+    const candidates = new Map();
+    if (usernameMatch) candidates.set(String(usernameMatch._id), usernameMatch);
+    for (const u of nameMatches) {
+      if (!candidates.has(String(u._id))) candidates.set(String(u._id), u);
+    }
+
+    if (candidates.size === 0) {
+      return res.status(200).json({ users: [] });
+    }
+
+    const targetIds = [...candidates.values()].map((u) => u._id);
+    const [followingSet, followedBySet, pendingRequestSet, blockedSet] = await Promise.all([
       getViewerFollowingSet(viewerId, targetIds),
       getViewerFollowedBySet(viewerId, targetIds),
       getViewerPendingRequestSet(viewerId, targetIds),
+      getViewerBlockSet(viewerId, targetIds),
     ]);
+
     const viewerContext = viewerId
       ? { viewerId, followingSet, followedBySet, pendingRequestSet }
       : undefined;
 
-    res.status(200).json({ users: users.map((u) => toPublicUser(u, viewerContext)) });
+    const results = [...candidates.values()]
+      .filter((u) => !blockedSet.has(String(u._id)))
+      .map((u) => toPublicUser(u, viewerContext));
+
+    res.status(200).json({ users: results });
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "Server Error" });
@@ -175,7 +202,9 @@ async function getBadgeSummary(userId, { includeLocked } = {}) {
 async function getFitnessStats(userId) {
   const workouts = await Workout.find({ user: userId })
     .select("sessionId _id date entryType workoutSets exercise")
-    .populate("exercise", "name muscleGroup");
+    .populate("exercise", "name muscleGroup")
+    .sort({ date: -1 })
+    .limit(MAX_WORKOUTS_SCANNED);
 
   return {
     sessionCount: countAllSessions(workouts),
@@ -212,19 +241,16 @@ exports.getPublicProfile = async (req, res) => {
       ]);
 
     const isBlocked = !!hasBlocked || !!blockedByOwner;
-    const canSeeContent = isBlocked
+    // isFollowing already reflects "viewer exists, isn't self, and follows this profile" (see above),
+    // so both checks below can reuse it instead of re-querying Follow.exists.
+    const canSeeContent = isBlocked ? false : isSelf || visibility === "public" || !!isFollowing;
+    const heatmapVisible = isBlocked
       ? false
-      : await canViewContent({ _id: user._id, profileVisibility: visibility }, viewerId);
+      : isSelf || visibility === "public" || (!!user.showTrainingActivity && !!isFollowing);
 
-    const [badges, fitnessStats, heatmapVisible] = await Promise.all([
+    const [badges, fitnessStats] = await Promise.all([
       isBlocked ? [] : getBadgeSummary(user._id, { includeLocked: !!isSelf }),
       canSeeContent ? getFitnessStats(user._id) : null,
-      isBlocked
-        ? false
-        : canViewHeatmap(
-            { _id: user._id, profileVisibility: visibility, showTrainingActivity: user.showTrainingActivity },
-            viewerId
-          ),
     ]);
 
     res.status(200).json({
@@ -548,9 +574,12 @@ exports.getActivity = async (req, res) => {
 
 exports.getFollowers = async (req, res) => {
   try {
-    const user = await findByUsername(req.params.username, "_id");
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
+    const viewerId = req.user?._id;
+    const { target: user, error, message } = await loadContentTarget(req.params.username, viewerId);
+    if (error) return res.status(error).json({ message });
+
+    if (!(await canViewContent(user, viewerId))) {
+      return res.status(403).json({ message: "This account is private" });
     }
 
     const page = Math.max(Number(req.query.page) || 1, 1);
@@ -563,7 +592,6 @@ exports.getFollowers = async (req, res) => {
       .populate("follower", "username name picture");
 
     const entries = follows.filter((f) => f.follower);
-    const viewerId = req.user?._id;
     const entryIds = entries.map((f) => f.follower._id);
     const [followingSet, followedBySet, pendingRequestSet] = await Promise.all([
       getViewerFollowingSet(viewerId, entryIds),
@@ -587,9 +615,12 @@ exports.getFollowers = async (req, res) => {
 
 exports.getFollowing = async (req, res) => {
   try {
-    const user = await findByUsername(req.params.username, "_id");
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
+    const viewerId = req.user?._id;
+    const { target: user, error, message } = await loadContentTarget(req.params.username, viewerId);
+    if (error) return res.status(error).json({ message });
+
+    if (!(await canViewContent(user, viewerId))) {
+      return res.status(403).json({ message: "This account is private" });
     }
 
     const page = Math.max(Number(req.query.page) || 1, 1);
@@ -602,7 +633,6 @@ exports.getFollowing = async (req, res) => {
       .populate("following", "username name picture");
 
     const entries = follows.filter((f) => f.following);
-    const viewerId = req.user?._id;
     const entryIds = entries.map((f) => f.following._id);
     const [followingSet, followedBySet, pendingRequestSet] = await Promise.all([
       getViewerFollowingSet(viewerId, entryIds),

@@ -10,4 +10,19 @@ async function isBlockedEitherWay(userIdA, userIdB) {
   return !!blocked;
 }
 
-module.exports = { isBlockedEitherWay };
+async function getViewerBlockSet(viewerId, targetIds) {
+  if (!viewerId || targetIds.length === 0) return new Set();
+  const blocks = await Block.find({
+    $or: [
+      { blocker: viewerId, blocked: { $in: targetIds } },
+      { blocker: { $in: targetIds }, blocked: viewerId },
+    ],
+  }).select("blocker blocked");
+  const blockedIds = new Set();
+  for (const b of blocks) {
+    blockedIds.add(String(b.blocker) === String(viewerId) ? String(b.blocked) : String(b.blocker));
+  }
+  return blockedIds;
+}
+
+module.exports = { isBlockedEitherWay, getViewerBlockSet };

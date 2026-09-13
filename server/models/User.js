@@ -43,6 +43,10 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    discoverableByName: {
+        type: Boolean,
+        default: false
+    },
     premiumTier: {
         type: String,
         enum: ["free", "premium"],

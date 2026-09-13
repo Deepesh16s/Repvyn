@@ -44,6 +44,7 @@ function Profile() {
 
   const [profileVisibility, setProfileVisibility] = useState("private");
   const [showTrainingActivity, setShowTrainingActivity] = useState(false);
+  const [discoverableByName, setDiscoverableByName] = useState(false);
   const [savingVisibility, setSavingVisibility] = useState(false);
   const [visibilityMsg, setVisibilityMsg] = useState("");
 
@@ -69,6 +70,7 @@ function Profile() {
         setUsername(res.data.username || "");
         setProfileVisibility(res.data.profileVisibility || "private");
         setShowTrainingActivity(!!res.data.showTrainingActivity);
+        setDiscoverableByName(!!res.data.discoverableByName);
       } catch (error) {
         console.log(error);
       } finally {
@@ -128,16 +130,18 @@ function Profile() {
     }
   };
 
-  const handleVisibilitySave = async (nextVisibility, nextShowTrainingActivity) => {
+  const handleVisibilitySave = async (nextVisibility, nextShowTrainingActivity, nextDiscoverableByName) => {
     setSavingVisibility(true);
     setVisibilityMsg("");
     try {
       const res = await api.put("/auth/profile-visibility", {
         profileVisibility: nextVisibility,
         showTrainingActivity: nextShowTrainingActivity,
+        discoverableByName: nextDiscoverableByName,
       });
       setProfileVisibility(res.data.user.profileVisibility);
       setShowTrainingActivity(!!res.data.user.showTrainingActivity);
+      setDiscoverableByName(!!res.data.user.discoverableByName);
     } catch (error) {
       setVisibilityMsg(error.response?.data?.message || "Could not update privacy settings.");
     } finally {
@@ -499,7 +503,7 @@ function Profile() {
               <button
                 type="button"
                 className={`profile-visibility-btn ${profileVisibility === "public" ? "profile-visibility-btn-active" : ""}`}
-                onClick={() => handleVisibilitySave("public", showTrainingActivity)}
+                onClick={() => handleVisibilitySave("public", showTrainingActivity, discoverableByName)}
                 disabled={savingVisibility}
               >
                 <Globe size={15} />
@@ -508,7 +512,7 @@ function Profile() {
               <button
                 type="button"
                 className={`profile-visibility-btn ${profileVisibility === "private" ? "profile-visibility-btn-active" : ""}`}
-                onClick={() => handleVisibilitySave("private", showTrainingActivity)}
+                onClick={() => handleVisibilitySave("private", showTrainingActivity, discoverableByName)}
                 disabled={savingVisibility}
               >
                 <ShieldOff size={15} />
@@ -528,9 +532,21 @@ function Profile() {
                   type="checkbox"
                   checked={showTrainingActivity}
                   disabled={savingVisibility}
-                  onChange={(e) => handleVisibilitySave(profileVisibility, e.target.checked)}
+                  onChange={(e) => handleVisibilitySave(profileVisibility, e.target.checked, discoverableByName)}
                 />
                 Show training activity on my profile
+              </label>
+            )}
+
+            {profileVisibility === "public" && (
+              <label className="profile-visibility-checkbox">
+                <input
+                  type="checkbox"
+                  checked={discoverableByName}
+                  disabled={savingVisibility}
+                  onChange={(e) => handleVisibilitySave(profileVisibility, showTrainingActivity, e.target.checked)}
+                />
+                Do you want to allow someone to discover you with your name?
               </label>
             )}
 
