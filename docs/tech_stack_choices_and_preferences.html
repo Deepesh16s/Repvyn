@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Repvyn — Technical Defense</title>
+<title>Repvyn — Technical Overview</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600;700&family=Source+Sans+3:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <style>
@@ -107,8 +107,8 @@
 <div class="page">
   <header class="hero">
     <span class="eyebrow">SIH 2026 · Team Repvyn</span>
-    <h1>Repvyn — Technical Defense</h1>
-    <p class="lede">This is the defense we put together for our technical approach slide — what we built, why we chose each piece over the alternatives we considered, and the trade-offs and limitations we're not going to pretend don't exist. Everything below is checked against our own repository.</p>
+    <h1>Repvyn — Technical Overview</h1>
+    <p class="lede">A detailed look at how Repvyn is built — what we built, why we chose each piece over the alternatives we considered, and the trade-offs and limitations that come with those choices. Everything below is checked against our own repository.</p>
     <div class="method">
       <span>What it is</span><span>Why we chose it</span><span>Alternatives we weighed</span><span>Why ours won</span><span>In our code</span>
     </div>
@@ -158,9 +158,9 @@
   <section id="pitch">
     <div class="sec-head">
       <h2>Preview</h2>
-      <p>What we say when a judge asks us to walk through the architecture. Everything after this is what we fall back on if they dig deeper.</p>
+      <p>A quick summary of the whole system. Every section after this goes into that same picture in more depth.</p>
     </div>
-    <p class="pitch">So we're JavaScript from front to back. The web app's built in React with Vite, and it's served off Vercel's edge network, so it loads fast wherever you are. On mobile we're using React Native through Expo, and that side also pulls in wearable data from Android Health Connect — though we'll be upfront that the mobile app is a working prototype right now, not something we'd hand a judge to install; more on that later. Both the web app and the API talk to one backend — a Node and Express API we run on Render, with 102 REST endpoints spread across 16 route modules, plus a WebSocket for live chat. All our data lives in MongoDB through Mongoose: 26 collections, 53 indexes so lookups stay fast. For the things we didn't think we should build ourselves, we lean on outside services — Cloudinary handles images, Resend sends email, and notifications go out through standard web push. And every single request has to get past security headers, a locked-down CORS policy, rate limits, and token verification before it touches anything. The analytics you'd see in the app are actually just deterministic formulas we run right in the browser — there's no AI model anywhere in this, and that's on purpose. And nothing we write ships without going through GitHub Actions first: syntax checks, real tests against an actual in-memory MongoDB, a production build, and full browser tests end to end.</p>
+    <p class="pitch">So we're JavaScript from front to back. The web app's built in React with Vite, and it's served off Vercel's edge network, so it loads fast wherever you are. On mobile we're using React Native through Expo, and that side also pulls in wearable data from Android Health Connect — though the mobile app is a working prototype right now, not yet something we'd hand someone else to install; more on that in the mobile section. Both the web app and the API talk to one backend — a Node and Express API we run on Render, with 102 REST endpoints spread across 16 route modules, plus a WebSocket for live chat. All our data lives in MongoDB through Mongoose: 26 collections, 53 indexes so lookups stay fast. For the things we didn't think we should build ourselves, we lean on outside services — Cloudinary handles images, Resend sends email, and notifications go out through standard web push. And every single request has to get past security headers, a locked-down CORS policy, rate limits, and token verification before it touches anything. The analytics you'd see in the app are actually just deterministic formulas we run right in the browser — there's no AI model anywhere in this, and that's on purpose. And nothing we write ships without going through GitHub Actions first: syntax checks, real tests against an actual in-memory MongoDB, a production build, and full browser tests end to end.</p>
   </section>
 
   <section id="flow">
@@ -199,7 +199,7 @@
       <div class="layer wide">
         <h3>Offline layer — where we are and what's next</h3>
         <p>Right now our service worker handles push notifications only. What we've designed, and what we're building next, is an <strong>IndexedDB</strong> queue that a logged set writes to first, replayed by the service worker's <strong>Background Sync</strong> once connectivity returns. We picked IndexedDB over localStorage because localStorage blocks the page while it works, only stores text, and caps out at a few megabytes; IndexedDB is asynchronous, stores real objects, and holds far more. We picked Background Sync over a manual retry because the browser finishes delivery even if the tab gets closed. And replaying can't cause conflicts for us, because our workout logs are <strong>append-only</strong> — a user adds sets, they never co-edit a shared record.</p>
-        <p class="push" style="margin-top:10px"><b>If we're pushed on it:</b> "Background Sync only works in Chromium browsers." — Correct, and our fallback for Firefox and Safari is retrying the queue when the browser fires its <code>online</code> event, which gets us the same result whenever the app is open.</p>
+        <p class="push" style="margin-top:10px"><b>Worth knowing:</b> "Background Sync only works in Chromium browsers." — Correct, and our fallback for Firefox and Safari is retrying the queue when the browser fires its <code>online</code> event, which gets us the same result whenever the app is open.</p>
       </div>
       <div class="layer wide">
         <h3>Our deterministic intelligence layer</h3>
@@ -343,7 +343,7 @@
           <div><dt>Alternatives we weighed</dt><dd>PostgreSQL, MySQL, Firebase Firestore.</dd></div>
           <div><dt>Why ours won</dt><dd>Fixed relational tables would have needed a lot of mostly-empty columns or extra join tables to hold that variety. Firestore would have locked us into Google and charges per document read. And we didn't give up safety for it — MongoDB gives us full ACID transactions where we need them.</dd></div>
           <div><dt class="code-label">In our code</dt><dd class="code-note">26 collections, 53 index declarations across 23 models, and a multi-document transaction for account deletion.</dd></div>
-          <div class="push"><b>If we're pushed on it:</b> "PostgreSQL stores JSON too." — True, and Postgres would have worked fine. We picked the database whose native model matched our data best. It's a question of fit for us, not a claim that Postgres couldn't do it.</div>
+          <div class="push"><b>Worth knowing:</b> "PostgreSQL stores JSON too." — True, and Postgres would have worked fine. We picked the database whose native model matched our data best. It's a question of fit for us, not a claim that Postgres couldn't do it.</div>
         </dl>
       </article>
 
@@ -376,7 +376,7 @@
           <div><dt>Alternatives we weighed</dt><dd>Server-side sessions with cookies, hosted services like Auth0, Clerk or Firebase Auth.</dd></div>
           <div><dt>Why ours won</dt><dd>Our web app on Vercel and our API on Render live on different domains, which makes cookie sessions harder for us to configure safely. Hosted auth services cost money at scale and hand user identity to a third party.</dd></div>
           <div><dt class="code-label">In our code</dt><dd class="code-note">Our tokens expire after 7 days and travel in the <code>Authorization: Bearer</code> header. We reload the user from the database on every request, so deleting an account makes its token useless immediately.</dd></div>
-          <div class="push"><b>If we're pushed on it:</b> "You can't revoke a JWT." — A pure JWT can't be revoked before it expires, which is exactly why our middleware re-checks that the user still exists on every single request.</div>
+          <div class="push"><b>Worth knowing:</b> "You can't revoke a JWT." — A pure JWT can't be revoked before it expires, which is exactly why our middleware re-checks that the user still exists on every single request.</div>
         </dl>
       </article>
 
@@ -388,7 +388,7 @@
           <div><dt>Alternatives we weighed</dt><dd>Argon2, native bcrypt, scrypt, plain SHA-256.</dd></div>
           <div><dt>Why ours won</dt><dd>Plain SHA-256 is far too fast for passwords. Native bcrypt needs a C++ compiler at install time, which fails on some hosts; bcryptjs is pure JavaScript and installs anywhere for us. Argon2 is the newer top recommendation, and bcrypt is still on OWASP's accepted list.</dd></div>
           <div><dt class="code-label">In our code</dt><dd class="code-note">We use cost factor 10 — OWASP's minimum for bcrypt — so 2¹⁰ rounds of work go into every hash.</dd></div>
-          <div class="push"><b>If we're pushed on it:</b> "Why not Argon2?" — It's OWASP's first recommendation, and a sensible upgrade for us later. bcrypt at cost 10 is still an accepted choice today, and bcryptjs deploys with no native build step.</div>
+          <div class="push"><b>Worth knowing:</b> "Why not Argon2?" — It's OWASP's first recommendation, and a sensible upgrade for us later. bcrypt at cost 10 is still an accepted choice today, and bcryptjs deploys with no native build step.</div>
         </dl>
       </article>
 
@@ -454,7 +454,7 @@
           <div><dt>Alternatives we weighed</dt><dd>A Redis-backed limiter, Cloudflare or an API gateway, nginx rate limiting.</dd></div>
           <div><dt>Why ours won</dt><dd>On our single server instance, counting in memory needs no extra infrastructure for us. Every alternative adds another service to run and pay for.</dd></div>
           <div><dt class="code-label">In our code</dt><dd class="code-note">We run 12 limiters across 5 modules, each tuned to its action: login 10 per 15 minutes, forgot-password 5, posts 15 per hour, comments 30 per hour, chat messages 60 per 5 minutes. We can change any of these through an environment variable.</dd></div>
-          <div class="push"><b>If we're pushed on it:</b> "In-memory limits break with multiple servers." — Correct, each server would keep its own count. The same Redis step that lets us scale chat across servers also backs the rate limiter.</div>
+          <div class="push"><b>Worth knowing:</b> "In-memory limits break with multiple servers." — Correct, each server would keep its own count. The same Redis step that lets us scale chat across servers also backs the rate limiter.</div>
         </dl>
       </article>
 
@@ -539,7 +539,7 @@
           <div><dt>Alternatives we weighed</dt><dd>Socket.IO, polling, Server-Sent Events, Pusher or Ably.</dd></div>
           <div><dt>Why ours won</dt><dd>Socket.IO layers its own protocol and client library on top of WebSockets. Polling wastes requests and adds delay. Server-Sent Events only flow from server to client. Pusher and Ably are paid services we didn't want to depend on.</dd></div>
           <div><dt class="code-label">In our code</dt><dd class="code-note">We mount it at <code>/ws/chat</code> on the same server. We refuse a connection unless it carries a valid token for a user who still exists, and each user's messages reach every device they have open.</dd></div>
-          <div class="push"><b>If we're pushed on it:</b> "What happens with two servers?" — Today, the list of open connections lives in one server's memory, so a message received by server A can't reach a user connected to server B. Adding Redis pub/sub is our fix: every server subscribes to one channel and delivers to whoever it's holding.</div>
+          <div class="push"><b>Worth knowing:</b> "What happens with two servers?" — Today, the list of open connections lives in one server's memory, so a message received by server A can't reach a user connected to server B. Adding Redis pub/sub is our fix: every server subscribes to one channel and delivers to whoever it's holding.</div>
         </dl>
       </article>
 
@@ -553,7 +553,7 @@
     </div>
 
     <div class="push" style="font-size:1rem;padding:16px 18px;">
-      <b>Where we actually stand:</b> our mobile app is not a finished product yet. We built it to prove one specific thing end to end — that we could pull real data out of Android Health Connect and land it in our own database — and it does that. It's not something we'd hand a judge to install today. It runs as a custom development build through <code>expo-dev-client</code>, currently only on our own phone, and it needs a proper network connection to work. Turning it into an installable app for anyone else is our next milestone, not something already done.
+      <b>Where we actually stand:</b> our mobile app is not a finished product yet. We built it to prove one specific thing end to end — that we could pull real data out of Android Health Connect and land it in our own database — and it does that. It's not something we'd hand someone else to install today. It runs as a custom development build through <code>expo-dev-client</code>, currently only on our own phone, and it needs a proper network connection to work. Turning it into an installable app for anyone else is our next milestone, not something already done.
     </div>
 
     <div class="cards" style="margin-top:14px">
@@ -681,7 +681,7 @@
           <div><dt>Alternatives we weighed</dt><dd>Heroku, Railway, AWS EC2 or ECS.</dd></div>
           <div><dt>Why ours won</dt><dd>Heroku removed its free tier in 2022. Railway is comparable, but Render keeps our setup declarative in one committed file. AWS would mean managing our own servers, load balancers and certificates.</dd></div>
           <div><dt class="code-label">In our code</dt><dd class="code-note">Our <code>render.yaml</code> defines the service and start command, and every secret is an environment variable, never written into our code.</dd></div>
-          <div class="push"><b>If we're pushed on it:</b> "Free tiers sleep." — Yes, honestly. Our API currently runs on Render's free plan, which sleeps when idle and cold-starts on the next request. Moving to a paid instance is a one-line configuration change for us, not a rewrite.</div>
+          <div class="push"><b>Worth knowing:</b> "Free tiers sleep." — Yes, honestly. Our API currently runs on Render's free plan, which sleeps when idle and cold-starts on the next request. Moving to a paid instance is a one-line configuration change for us, not a rewrite.</div>
         </dl>
       </article>
 
@@ -713,7 +713,7 @@
   <section id="hard">
     <div class="sec-head">
       <h2>Our answer to some common questions and doubts</h2>
-      <p>The ones we think a technical judge is most likely to ask, with the honest answer we'd actually give. We'd rather admit a trade-off than get caught bluffing on one.</p>
+      <p>The questions people most often have about these choices, with the honest answer, trade-offs and limitations included rather than glossed over.</p>
     </div>
     <div class="qa">
 
@@ -756,7 +756,7 @@
       <div class="q">
         <h3>Is it really a PWA, and does it work offline?</h3>
         <p>Not yet, and we'd rather be upfront about it. A PWA needs three things: HTTPS, a web app manifest, and a service worker. We have HTTPS and a service worker; we haven't added a manifest yet. Offline logging is designed but not built: we'll write each set into an IndexedDB queue and let Background Sync deliver it on reconnect, with a fallback for browsers without Background Sync support.</p>
-        <p class="note">Worth knowing if a judge opens browser DevTools during our demo: our service worker today handles push notifications only. We'll say that ourselves rather than get caught by it.</p>
+        <p class="note">Worth knowing: our service worker today handles push notifications only. Anyone who checks browser DevTools would see exactly that, which is why it's stated plainly here rather than left for someone else to discover.</p>
       </div>
 
       <div class="q">
@@ -808,7 +808,7 @@
   </section>
 
   <footer class="pagefoot">
-    Team Repvyn · prepared for our SIH 2026 technical approach slide (PS26196)
+    Team Repvyn · technical documentation for our SIH 2026 submission (PS26196)
   </footer>
 
 </main>
