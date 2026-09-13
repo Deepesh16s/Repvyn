@@ -538,15 +538,29 @@ exports.updateProfileVisibility = async (req, res) => {
 };
 
 exports.googleLogin = async (req, res) => {
-  try {
-    const { token: googleToken } = req.body;
+  const { token: googleToken } = req.body;
 
+  if (!googleToken || typeof googleToken !== "string") {
+    return res.status(400).json({ message: "Google credential is required" });
+  }
+
+  let payload;
+  try {
     const ticket = await client.verifyIdToken({
       idToken: googleToken,
       audience: process.env.GOOGLE_CLIENT_ID,
     });
+    payload = ticket.getPayload();
+  } catch (error) {
+    console.log(error);
+    return res.status(401).json({ message: "Invalid or expired Google credential" });
+  }
 
-    const payload = ticket.getPayload();
+  if (!payload) {
+    return res.status(401).json({ message: "Invalid or expired Google credential" });
+  }
+
+  try {
     const { sub, email, email_verified: emailVerified, name, picture } = payload;
 
     if (!emailVerified) {
@@ -611,11 +625,15 @@ exports.forgotPassword = async (req, res) => {
 
       const resetUrl = `${process.env.CLIENT_URL}/reset-password/${rawToken}`;
 
-      await sendEmail({
-        to: user.email,
-        subject: "Reset your Repvyn password",
-        html: `<p>Click the link below to reset your password. This link expires in 15 minutes.</p><p><a href="${resetUrl}">${resetUrl}</a></p>`,
-      });
+      try {
+        await sendEmail({
+          to: user.email,
+          subject: "Reset your Repvyn password",
+          html: `<p>Click the link below to reset your password. This link expires in 15 minutes.</p><p><a href="${resetUrl}">${resetUrl}</a></p>`,
+        });
+      } catch (emailError) {
+        console.error("Failed to send password reset email:", emailError);
+      }
     }
 
     res.status(200).json({

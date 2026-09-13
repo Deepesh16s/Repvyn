@@ -29,7 +29,7 @@ const uploadProfilePictureMiddleware = require("../middleware/uploadProfilePictu
 
 router.post("/register", loginRegisterLimiter, registerUser);
 router.post("/login", loginRegisterLimiter, loginUser);
-router.post("/google", googleLogin);
+router.post("/google", loginRegisterLimiter, googleLogin);
 router.post("/forgot-password", forgotPasswordLimiter, forgotPassword);
 router.post("/reset-password/:token", resetPassword);
 
