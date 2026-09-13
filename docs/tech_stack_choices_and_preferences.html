@@ -1,0 +1,808 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Repvyn — Technical Defense</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600;700&family=Source+Sans+3:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+  :root{
+    --bg:#F3F4F1; --surface:#FFFFFF; --surface-2:#EEF1F2; --ink:#172131; --muted:#5B6573;
+    --line:#DCE0E3; --accent:#1D5EA8; --accent-soft:#E3ECF7; --flag:#A84E17; --flag-soft:#F6E9DF;
+    --ok:#2C7349; --ok-soft:#E2F0E6;
+    --f-display:'Schibsted Grotesk', 'Segoe UI', Arial, sans-serif;
+    --f-body:'Source Sans 3', 'Segoe UI', Arial, sans-serif;
+    --f-mono:'JetBrains Mono', Consolas, 'Courier New', monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0E131A; --surface:#151C25; --surface-2:#1B2430; --ink:#E5E9EF; --muted:#9AA4B1;
+      --line:#273140; --accent:#79AEEA; --accent-soft:#1A2A3D; --flag:#E48C58; --flag-soft:#2E2119;
+      --ok:#6FC08F; --ok-soft:#18291F;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0E131A; --surface:#151C25; --surface-2:#1B2430; --ink:#E5E9EF; --muted:#9AA4B1;
+    --line:#273140; --accent:#79AEEA; --accent-soft:#1A2A3D; --flag:#E48C58; --flag-soft:#2E2119;
+    --ok:#6FC08F; --ok-soft:#18291F;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16.5px;line-height:1.6;margin:0}
+  h1,h2,h3{font-family:var(--f-display);color:var(--ink);text-wrap:balance;margin:0;letter-spacing:-0.01em}
+  p{margin:0}
+  a{color:var(--accent)}
+  code,.mono{font-family:var(--f-mono);font-size:.84em}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .page{max-width:980px;margin:0 auto;padding-inline:20px;padding-block:48px 96px}
+  .eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+  .hero h1{font-size:clamp(2rem,4.4vw,2.9rem);font-weight:700;margin-top:10px}
+  .lede{color:var(--muted);font-size:1.08rem;max-width:66ch;margin-top:12px}
+  .method{margin-top:22px;display:flex;flex-wrap:wrap;gap:8px}
+  .method span{font-family:var(--f-mono);font-size:12px;padding:5px 10px;border-radius:5px;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
+  .numbers{margin-top:28px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 20px}
+  .numbers h2{font-size:.95rem;font-weight:600}
+  .numbers ul{list-style:none;margin:12px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px 18px}
+  .numbers li{display:flex;align-items:baseline;gap:9px;font-size:.93rem;color:var(--muted)}
+  .numbers b{font-family:var(--f-display);font-size:1.25rem;color:var(--ink);font-variant-numeric:tabular-nums;min-width:2.2ch}
+  nav.toc{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);margin-top:34px}
+  nav.toc .in{max-width:980px;margin:0 auto;padding-inline:20px;display:flex;gap:6px;overflow-x:auto;padding-block:10px}
+  nav.toc a{flex:none;font-size:.86rem;text-decoration:none;color:var(--muted);padding:5px 11px;border-radius:999px;border:1px solid var(--line);background:var(--surface);white-space:nowrap}
+  nav.toc a:hover{color:var(--ink);border-color:var(--accent)}
+  section{padding-top:52px}
+  .sec-head{margin-bottom:20px;max-width:70ch}
+  .sec-head h2{font-size:1.65rem;font-weight:700}
+  .sec-head p{color:var(--muted);margin-top:8px}
+  .pitch{background:var(--accent-soft);border-left:4px solid var(--accent);border-radius:0 10px 10px 0;padding:22px 24px;font-size:1.06rem;line-height:1.7}
+  .glossary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .term{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:13px 16px}
+  .term dt{font-family:var(--f-display);font-weight:600}
+  .term dd{margin:4px 0 0;color:var(--muted);font-size:.95rem}
+  .flow{list-style:none;counter-reset:step;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+  .flow li{counter-increment:step;display:grid;grid-template-columns:38px 1fr;gap:14px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:13px 16px}
+  .flow li::before{content:counter(step);font-family:var(--f-display);font-weight:700;color:var(--accent);background:var(--accent-soft);border-radius:6px;display:flex;align-items:center;justify-content:center;height:30px;width:30px}
+  .flow strong{font-weight:600}
+  .aside{margin-top:14px;background:var(--surface-2);border-radius:8px;padding:14px 16px;color:var(--ink)}
+  .aside b{font-family:var(--f-display)}
+  .cards{display:flex;flex-direction:column;gap:14px}
+  .adr{display:grid;grid-template-columns:210px minmax(0,1fr);gap:22px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px 22px}
+  .adr-id h3{font-size:1.2rem;font-weight:700}
+  .adr-ver{display:inline-block;margin-top:6px;font-family:var(--f-mono);font-size:12px;padding:3px 8px;border-radius:5px;background:var(--surface-2);color:var(--ink)}
+  .adr-role{margin-top:8px;font-size:.88rem;color:var(--muted)}
+  .adr dl{margin:0;display:grid;gap:11px}
+  .adr dt{font-family:var(--f-mono);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+  .adr dd{margin:2px 0 0}
+  .adr dd.code-note{background:var(--ok-soft);border-radius:6px;padding:8px 11px;margin-top:4px}
+  .adr dt.code-label{color:var(--ok)}
+  .push{margin-top:4px;background:var(--flag-soft);border-left:3px solid var(--flag);border-radius:0 6px 6px 0;padding:9px 12px;font-size:.95rem}
+  .push b{color:var(--flag);font-family:var(--f-display)}
+  .layers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .layer{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+  .layer h3{font-size:1.02rem;font-weight:600}
+  .layer p{color:var(--muted);margin-top:6px;font-size:.95rem}
+  .layer.wide{grid-column:1/-1}
+  .qa{display:flex;flex-direction:column;gap:12px}
+  .q{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 20px}
+  .q h3{font-size:1.06rem;font-weight:600}
+  .q h3::before{content:"Q  ";font-family:var(--f-mono);color:var(--flag);font-size:.9rem}
+  .q p{margin-top:8px}
+  .q p + p{margin-top:8px}
+  .q .note{color:var(--muted);font-size:.93rem}
+  footer.pagefoot{margin-top:60px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:.88rem}
+  @media (max-width:760px){
+    .adr{grid-template-columns:1fr;gap:12px}
+    .glossary,.layers{grid-template-columns:1fr}
+    .layer.wide{grid-column:auto}
+    body{font-size:16px}
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <header class="hero">
+    <span class="eyebrow">SIH 2026 · Team Repvyn</span>
+    <h1>Repvyn — Technical Defense</h1>
+    <p class="lede">This is the defense we put together for our technical approach slide — what we built, why we chose each piece over the alternatives we considered, and the trade-offs and limitations we're not going to pretend don't exist. Everything below is checked against our own repository.</p>
+    <div class="method">
+      <span>What it is</span><span>Why we chose it</span><span>Alternatives we weighed</span><span>Why ours won</span><span>In our code</span>
+    </div>
+
+    <div class="numbers">
+      <h2>Numbers we keep coming back to</h2>
+      <ul>
+        <li><b>102</b> REST endpoints</li>
+        <li><b>16</b> route modules</li>
+        <li><b>26</b> MongoDB collections</li>
+        <li><b>53</b> index declarations</li>
+        <li><b>12</b> rate limiters, 5 modules</li>
+        <li><b>24</b> collections in one delete transaction</li>
+        <li><b>7</b> days until a login token expires</li>
+        <li><b>10</b> bcrypt cost factor</li>
+        <li><b>15</b> minutes on a reset link</li>
+        <li><b>8</b> MB upload cap</li>
+        <li><b>7</b> Health Connect record types</li>
+        <li><b>3</b> CI jobs on every push</li>
+      </ul>
+    </div>
+  </header>
+</div>
+
+<nav class="toc" aria-label="Sections"><div class="in">
+  <a href="#pitch">Our 30-second answer</a>
+  <a href="#flow">How a request flows</a>
+  <a href="#layers">Our five layers</a>
+  <a href="#frontend">Frontend</a>
+  <a href="#backend">Backend &amp; data</a>
+  <a href="#auth">Auth</a>
+  <a href="#security">Security</a>
+  <a href="#media">Media · email · push</a>
+  <a href="#realtime">Real-time</a>
+  <a href="#mobile">Mobile</a>
+  <a href="#testing">Testing</a>
+  <a href="#deploy">Deployment &amp; CI</a>
+  <a href="#hard">Questions we've prepared for</a>
+  <a href="#appendix">Appendix: terms</a>
+</div></nav>
+
+<main class="page" style="padding-top:0">
+
+  <section id="pitch">
+    <div class="sec-head">
+      <h2>What we say when someone asks us to walk through it</h2>
+      <p>This is our answer when a judge asks "walk me through your architecture." Everything after it is what we fall back on if they dig deeper.</p>
+    </div>
+    <p class="pitch">So we're JavaScript from front to back. The web app's built in React with Vite, and it's served off Vercel's edge network, so it loads fast wherever you are. On mobile we're using React Native through Expo, and that side also pulls in wearable data from Android Health Connect — though we'll be upfront that the mobile app is a working prototype right now, not something we'd hand a judge to install; more on that later. Both the web app and the API talk to one backend — a Node and Express API we run on Render, with 102 REST endpoints spread across 16 route modules, plus a WebSocket for live chat. All our data lives in MongoDB through Mongoose: 26 collections, 53 indexes so lookups stay fast. For the things we didn't think we should build ourselves, we lean on outside services — Cloudinary handles images, Resend sends email, and notifications go out through standard web push. And every single request has to get past security headers, a locked-down CORS policy, rate limits, and token verification before it touches anything. The analytics you'd see in the app are actually just deterministic formulas we run right in the browser — there's no AI model anywhere in this, and that's on purpose. And nothing we write ships without going through GitHub Actions first: syntax checks, real tests against an actual in-memory MongoDB, a production build, and full browser tests end to end.</p>
+  </section>
+
+  <section id="flow">
+    <div class="sec-head">
+      <h2>What happens when someone logs a set</h2>
+      <p>We think the clearest way to show we understand our own architecture is to trace one real action through it, so this is the sequence we walk through when asked.</p>
+    </div>
+    <ol class="flow">
+      <li><div><strong>React captures the set.</strong> Axios sends a <code>POST</code> to our API, attaching the login token in the <code>Authorization</code> header automatically.</div></li>
+      <li><div><strong>It travels over HTTPS to Render.</strong> We tell Express to trust Render's proxy, so it sees the user's real IP address — which our rate limiter needs.</div></li>
+      <li><div><strong>helmet adds our security headers, compression prepares to gzip the reply, and CORS confirms</strong> the request came from our own site.</div></li>
+      <li><div><strong>Our rate limiter checks</strong> this client hasn't gone over its allowance for that action.</div></li>
+      <li><div><strong>Our <code>protect</code> middleware verifies the token's signature and expiry,</strong> then reloads the user from our database — so deleting an account makes its token useless instantly.</div></li>
+      <li><div><strong>Our controller runs the logic and Mongoose validates the data</strong> against our schema: required fields, types, allowed values.</div></li>
+      <li><div><strong>MongoDB saves the document,</strong> using our indexed fields to keep lookups fast.</div></li>
+      <li><div><strong>Side effects fire:</strong> goals recalculate automatically, and a new personal record can award a badge and send a push notification.</div></li>
+      <li><div><strong>JSON comes back, React re-renders,</strong> and our deterministic engines recompute plateau, fatigue and weekly grade right in the browser.</div></li>
+    </ol>
+    <p class="aside"><b>Sending a chat message</b> follows the same path through step 7 — we cap it at 60 messages per 5 minutes — and then our server looks up the recipient in its WebSocket connection registry and pushes the message down every connection that person has open, phone and laptop at once.</p>
+  </section>
+
+  <section id="layers">
+    <div class="sec-head">
+      <h2>The five layers we built</h2>
+      <p>This maps to the right-hand column of our technical approach slide, one layer at a time.</p>
+    </div>
+    <div class="layers">
+      <div class="layer">
+        <h3>Clients</h3>
+        <p>We built two apps — the React web app and an Expo mobile app — sharing one API. We keep business rules in one place, on the server, so web and mobile can never disagree about what's allowed. We'll say plainly: the mobile app today is a working prototype we run on our own device to prove the wearable-sync pipeline end to end, not yet a build we'd hand someone to install.</p>
+      </div>
+      <div class="layer">
+        <h3>API</h3>
+        <p>Express 5 with 102 endpoints across 16 modules we wrote. Login through JWT and Google, protection through helmet, CORS and 12 rate limiters, and a WebSocket at <code>/ws/chat</code> that requires a valid token to connect.</p>
+      </div>
+      <div class="layer wide">
+        <h3>Offline layer — where we are and what's next</h3>
+        <p>Right now our service worker handles push notifications only. What we've designed, and what we're building next, is an <strong>IndexedDB</strong> queue that a logged set writes to first, replayed by the service worker's <strong>Background Sync</strong> once connectivity returns. We picked IndexedDB over localStorage because localStorage blocks the page while it works, only stores text, and caps out at a few megabytes; IndexedDB is asynchronous, stores real objects, and holds far more. We picked Background Sync over a manual retry because the browser finishes delivery even if the tab gets closed. And replaying can't cause conflicts for us, because our workout logs are <strong>append-only</strong> — a user adds sets, they never co-edit a shared record.</p>
+        <p class="push" style="margin-top:10px"><b>If we're pushed on it:</b> "Background Sync only works in Chromium browsers." — Correct, and our fallback for Firefox and Safari is retrying the queue when the browser fires its <code>online</code> event, which gets us the same result whenever the app is open.</p>
+      </div>
+      <div class="layer wide">
+        <h3>Our deterministic intelligence layer</h3>
+        <p>We built formulas, not a trained model. Our estimated one-rep max uses the Epley equation, our fatigue score is a weighted combination of five signals, and our volume ranges are percentiles of a user's own history — and every output we generate carries an evidence-strength tag. It all runs in the browser, so there's zero server cost, instant results, and nothing that can hallucinate. When someone asks us if this is AI, our answer is deliberately no — we weren't comfortable handing someone a recommendation about their own body that we couldn't explain.</p>
+      </div>
+      <div class="layer wide">
+        <h3>Data and services</h3>
+        <p>MongoDB holds our data — 26 collections, 23 models, 53 index declarations. We hand three jobs to outside services rather than building them ourselves: Cloudinary for images, Resend for email, and web push for notifications. Render runs our API, Vercel serves our web app, and GitHub Actions checks every change we make before it ships.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="frontend">
+    <div class="sec-head">
+      <h2>Frontend</h2>
+      <p>What we shipped to run in the user's browser.</p>
+    </div>
+    <div class="cards">
+
+      <article class="adr">
+        <div class="adr-id"><h3>React</h3><span class="adr-ver">19.2</span><p class="adr-role">UI library</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>A library for building screens out of reusable components. When data changes, it redraws only the parts of the screen that need it.</dd></div>
+          <div><dt>Why we chose it</dt><dd>We wanted the largest ecosystem and talent pool, and the same way of thinking carries straight into React Native for our mobile app — one skill set covering both.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>Angular, Vue, Svelte.</dd></div>
+          <div><dt>Why ours won</dt><dd>Angular felt like a heavyweight framework with a lot more boilerplate than we wanted. Vue and Svelte are excellent, but neither has an equivalent of React Native, so we'd have needed two different paradigms for web and mobile.</dd></div>
+          <div><dt class="code-label">In our code</dt><dd class="code-note">We load 16 screens lazily with <code>React.lazy</code>, so a user only downloads a page's code when they actually open that page.</dd></div>
+        </dl>
+      </article>
+
+      <article class="adr">
+        <div class="adr-id"><h3>Vite</h3><span class="adr-ver">8</span><p class="adr-role">Build tool and dev server</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>It turns our source files into files a browser can load, and runs a dev server that updates instantly as we change code.</dd></div>
+          <div><dt>Why we chose it</dt><dd>We wanted near-instant startup and reloads while we work, and fast production builds.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>Create React App, hand-configured Webpack, Next.js.</dd></div>
+          <div><dt>Why ours won</dt><dd>Create React App was officially deprecated by the React team in 2025. Webpack felt slower and more complex than we wanted to configure. Next.js adds server-side rendering, which mostly helps search engines index pages — not much value for an app that lives behind a login.</dd></div>
+          <div><dt class="code-label">In our code</dt><dd class="code-note">Vite 8 uses Rolldown, a bundler written in Rust. Our whole client builds in about 7 seconds, with each page split into its own file.</dd></div>
+        </dl>
+      </article>
+
+      <article class="adr">
+        <div class="adr-id"><h3>React Router</h3><span class="adr-ver">7.18</span><p class="adr-role">Navigation between screens</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>It maps addresses like <code>/analytics</code> or <code>/u/deep_16s</code> to screens without a page reload.</dd></div>
+          <div><dt>Why we chose it</dt><dd>It's the standard router for React single-page apps, and it supports the protected routes and lazy-loaded pages we needed.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>Next.js file-based routing, TanStack Router.</dd></div>
+          <div><dt>Why ours won</dt><dd>Next.js routing means adopting all of Next.js. TanStack Router looked strong but newer, with a smaller ecosystem than we wanted to depend on.</dd></div>
+          <div><dt class="code-label">In our code</dt><dd class="code-note">Our <code>RequireAuth</code> wrapper blocks private screens when there's no login token.</dd></div>
+        </dl>
+      </article>
+
+      <article class="adr">
+        <div class="adr-id"><h3>Axios</h3><span class="adr-ver">1.18</span><p class="adr-role">Talking to our API</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>A library for sending requests from our app to our server and reading the responses.</dd></div>
+          <div><dt>Why we chose it</dt><dd>Its interceptors let us attach the login token to every request from one single place.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>The browser's built-in <code>fetch</code>, TanStack Query.</dd></div>
+          <div><dt>Why ours won</dt><dd><code>fetch</code> would have needed manual JSON parsing, has no interceptors, and doesn't treat 404s or 500s as failures on its own. TanStack Query is a caching layer that sits on top of a client like Axios — it's a complement, not a replacement.</dd></div>
+          <div><dt class="code-label">In our code</dt><dd class="code-note">Our <code>services/api.js</code> reads the token and adds the Authorization header centrally, so no individual screen handles authentication itself.</dd></div>
+        </dl>
+      </article>
+
+      <article class="adr">
+        <div class="adr-id"><h3>Recharts</h3><span class="adr-ver">3.8</span><p class="adr-role">Charts</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>A charting library where each chart is built out of React components.</dd></div>
+          <div><dt>Why we chose it</dt><dd>We wanted charts written the same way as the rest of our app, rendered as SVG so they stay sharp at any size and follow our light and dark themes.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>Chart.js, D3.js, ApexCharts.</dd></div>
+          <div><dt>Why ours won</dt><dd>Chart.js draws on canvas and needs a wrapper to play nicely with React. D3 is powerful but low-level — we'd have hand-built every axis and label. ApexCharts felt heavier than our progression and volume charts actually need.</dd></div>
+        </dl>
+      </article>
+
+      <article class="adr">
+        <div class="adr-id"><h3>Lucide</h3><span class="adr-ver">React</span><p class="adr-role">Icons</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>An open-source icon set where every icon is its own small React component.</dd></div>
+          <div><dt>Why we chose it</dt><dd>We only ship the icons we actually use, and they all share one consistent visual style.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>Font Awesome, Material Icons, Heroicons.</dd></div>
+          <div><dt>Why ours won</dt><dd>Font Awesome usually ships as a large font or bundle. Material Icons impose Google's visual style. Heroicons has a noticeably smaller set than we wanted.</dd></div>
+        </dl>
+      </article>
+
+      <article class="adr">
+        <div class="adr-id"><h3>React Select</h3><span class="adr-ver">5.10</span><p class="adr-role">Searchable dropdowns</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>A dropdown with type-to-search, keyboard support and multi-select.</dd></div>
+          <div><dt>Why we chose it</dt><dd>Our longer option lists needed search, which a native dropdown can't do.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>Native <code>&lt;select&gt;</code>, Downshift, Headless UI.</dd></div>
+          <div><dt>Why ours won</dt><dd>Native has no search. Downshift and Headless UI give behaviour only, so we'd have had to design and build every visual ourselves.</dd></div>
+        </dl>
+      </article>
+
+      <article class="adr">
+        <div class="adr-id"><h3>React Easy Crop</h3><span class="adr-ver">6.2</span><p class="adr-role">Image cropping</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>Lets a user crop and zoom a photo before uploading it.</dd></div>
+          <div><dt>Why we chose it</dt><dd>We wanted photos to arrive already framed, so our server stores a correctly cropped image instead of guessing.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>Cropper.js, react-image-crop.</dd></div>
+          <div><dt>Why ours won</dt><dd>Cropper.js isn't built for React and needs a wrapper. react-image-crop doesn't include zoom and pinch gestures out of the box, and those matter on phones.</dd></div>
+        </dl>
+      </article>
+
+    </div>
+  </section>
+
+  <section id="backend">
+    <div class="sec-head">
+      <h2>Backend and data</h2>
+      <p>The server we built to store data and enforce every rule.</p>
+    </div>
+    <div class="cards">
+
+      <article class="adr">
+        <div class="adr-id"><h3>Node.js</h3><span class="adr-ver">≥ 20</span><p class="adr-role">Server runtime</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>It lets JavaScript run on a server instead of only inside a browser.</dd></div>
+          <div><dt>Why we chose it</dt><dd>We wanted one language across web, mobile and server. Its non-blocking design handles many requests waiting at once, which suits an API that spends most of its time waiting on the database.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>Python with Django or FastAPI, Java with Spring Boot, Go.</dd></div>
+          <div><dt>Why ours won</dt><dd>All three are strong choices, but each would have added a second language and made us describe the same data twice. Node's known weakness is heavy number-crunching, which is exactly why we moved our heaviest computation, the analytics, into the browser.</dd></div>
+          <div><dt class="code-label">In our code</dt><dd class="code-note">We require Node 20 or newer, and our CI server job runs on Node 20.</dd></div>
+        </dl>
+      </article>
+
+      <article class="adr">
+        <div class="adr-id"><h3>Express</h3><span class="adr-ver">5.2</span><p class="adr-role">Web framework</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>A minimal framework that sends each incoming request through a chain of middleware to the right handler.</dd></div>
+          <div><dt>Why we chose it</dt><dd>It's the most widely used Node framework, with the biggest middleware ecosystem — and version 5 catches errors thrown inside async handlers for us automatically.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>Fastify, NestJS, Koa.</dd></div>
+          <div><dt>Why ours won</dt><dd>Fastify wins raw speed benchmarks, but our bottleneck is the database, not request routing. NestJS felt like a heavy, Angular-style structure for our needs. Koa's ecosystem was far smaller than we wanted.</dd></div>
+          <div><dt class="code-label">In our code</dt><dd class="code-note">16 route modules, a 404 fallback for unknown routes, and one central error handler that returns a generic message and never leaks internal details.</dd></div>
+        </dl>
+      </article>
+
+      <article class="adr">
+        <div class="adr-id"><h3>MongoDB</h3><span class="adr-ver">via Mongoose</span><p class="adr-role">Database</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>A document database: each record is a flexible JSON-like document, not a row in a fixed table.</dd></div>
+          <div><dt>Why we chose it</dt><dd>Our workout data is naturally nested and varies by type. A strength entry holds a list of sets; a cardio entry holds pace, incline or cadence depending on the activity.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>PostgreSQL, MySQL, Firebase Firestore.</dd></div>
+          <div><dt>Why ours won</dt><dd>Fixed relational tables would have needed a lot of mostly-empty columns or extra join tables to hold that variety. Firestore would have locked us into Google and charges per document read. And we didn't give up safety for it — MongoDB gives us full ACID transactions where we need them.</dd></div>
+          <div><dt class="code-label">In our code</dt><dd class="code-note">26 collections, 53 index declarations across 23 models, and a multi-document transaction for account deletion.</dd></div>
+          <div class="push"><b>If we're pushed on it:</b> "PostgreSQL stores JSON too." — True, and Postgres would have worked fine. We picked the database whose native model matched our data best. It's a question of fit for us, not a claim that Postgres couldn't do it.</div>
+        </dl>
+      </article>
+
+      <article class="adr">
+        <div class="adr-id"><h3>Mongoose</h3><span class="adr-ver">9.7</span><p class="adr-role">ODM — schemas and validation</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>A layer that defines a schema for each collection and validates data before it saves.</dd></div>
+          <div><dt>Why we chose it</dt><dd>MongoDB on its own accepts anything. We wanted required fields, types, allowed values and defaults enforced for us.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>The native MongoDB driver, Prisma, Typegoose.</dd></div>
+          <div><dt>Why ours won</dt><dd>The native driver has no schemas, so we'd have hand-written validation everywhere. Prisma's MongoDB support felt less mature than its SQL support. Typegoose needs TypeScript, which our server doesn't use.</dd></div>
+          <div><dt class="code-label">In our code</dt><dd class="code-note">We default <code>profileVisibility</code> to <code>"private"</code> in the schema itself — we enforce privacy at the data layer, not just in the interface.</dd></div>
+        </dl>
+      </article>
+
+    </div>
+  </section>
+
+  <section id="auth">
+    <div class="sec-head">
+      <h2>Authentication</h2>
+      <p>How we know who someone is.</p>
+    </div>
+    <div class="cards">
+
+      <article class="adr">
+        <div class="adr-id"><h3>JWT</h3><span class="adr-ver">jsonwebtoken 9</span><p class="adr-role">Login tokens</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>At login, we sign a token containing the user's id. The app sends it back to us with every request, and we check the signature to confirm it's genuine.</dd></div>
+          <div><dt>Why we chose it</dt><dd>It's stateless for us — no session table to look up — and one token covers our web app, our mobile app and our WebSocket connection.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>Server-side sessions with cookies, hosted services like Auth0, Clerk or Firebase Auth.</dd></div>
+          <div><dt>Why ours won</dt><dd>Our web app on Vercel and our API on Render live on different domains, which makes cookie sessions harder for us to configure safely. Hosted auth services cost money at scale and hand user identity to a third party.</dd></div>
+          <div><dt class="code-label">In our code</dt><dd class="code-note">Our tokens expire after 7 days and travel in the <code>Authorization: Bearer</code> header. We reload the user from the database on every request, so deleting an account makes its token useless immediately.</dd></div>
+          <div class="push"><b>If we're pushed on it:</b> "You can't revoke a JWT." — A pure JWT can't be revoked before it expires, which is exactly why our middleware re-checks that the user still exists on every single request.</div>
+        </dl>
+      </article>
+
+      <article class="adr">
+        <div class="adr-id"><h3>bcryptjs</h3><span class="adr-ver">3.0</span><p class="adr-role">Password hashing</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>It turns a password into an irreversible hash mixed with a random salt, and does it deliberately slowly.</dd></div>
+          <div><dt>Why we chose it</dt><dd>The slowness is the point for us. It makes trying millions of guessed passwords against a stolen database impractical.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>Argon2, native bcrypt, scrypt, plain SHA-256.</dd></div>
+          <div><dt>Why ours won</dt><dd>Plain SHA-256 is far too fast for passwords. Native bcrypt needs a C++ compiler at install time, which fails on some hosts; bcryptjs is pure JavaScript and installs anywhere for us. Argon2 is the newer top recommendation, and bcrypt is still on OWASP's accepted list.</dd></div>
+          <div><dt class="code-label">In our code</dt><dd class="code-note">We use cost factor 10 — OWASP's minimum for bcrypt — so 2¹⁰ rounds of work go into every hash.</dd></div>
+          <div class="push"><b>If we're pushed on it:</b> "Why not Argon2?" — It's OWASP's first recommendation, and a sensible upgrade for us later. bcrypt at cost 10 is still an accepted choice today, and bcryptjs deploys with no native build step.</div>
+        </dl>
+      </article>
+
+      <article class="adr">
+        <div class="adr-id"><h3>Reset links</h3><span class="adr-ver">Node crypto</span><p class="adr-role">Forgotten passwords</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>A one-time random link we email a user, which lets them set a new password.</dd></div>
+          <div><dt>Why we chose it</dt><dd>We only store a SHA-256 hash of the token, so even a database leak exposes no working reset links.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>Storing the raw token, security questions, a hosted auth provider's reset flow.</dd></div>
+          <div><dt>Why ours won</dt><dd>A raw stored token would be usable by anyone reading our database. Security questions are guessable. A fast hash is fine here — unlike for passwords — because the token is long random data, not something a human chose.</dd></div>
+          <div><dt class="code-label">In our code</dt><dd class="code-note">Each link we send expires after 15 minutes and gets cleared the moment it's used.</dd></div>
+        </dl>
+      </article>
+
+      <article class="adr">
+        <div class="adr-id"><h3>Google sign-in</h3><span class="adr-ver">google-auth-library 10.7 · @react-oauth/google</span><p class="adr-role">"Continue with Google"</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>The React package shows Google's own sign-in button. Our server package verifies the resulting Google token is genuine and was issued for our app specifically.</dd></div>
+          <div><dt>Why we chose it</dt><dd>We didn't want to trust a token the browser merely claims came from Google — we check the signature and intended audience ourselves.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>Passport.js, Firebase Auth, NextAuth.</dd></div>
+          <div><dt>Why ours won</dt><dd>Passport would have added a whole strategy framework for one provider. Firebase Auth means adopting Firebase. NextAuth is built for Next.js, which we don't use.</dd></div>
+          <div><dt class="code-label">In our code</dt><dd class="code-note">Google and email-password logins both end in the same 7-day Repvyn token, so the rest of our system never cares how someone signed in.</dd></div>
+        </dl>
+      </article>
+
+    </div>
+  </section>
+
+  <section id="security">
+    <div class="sec-head">
+      <h2>Security</h2>
+      <p>The checkpoints we put in front of every request.</p>
+    </div>
+    <div class="cards">
+
+      <article class="adr">
+        <div class="adr-id"><h3>helmet</h3><span class="adr-ver">8.3</span><p class="adr-role">Security headers</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>It adds HTTP response headers that switch on protections already built into browsers.</dd></div>
+          <div><dt>Why we chose it</dt><dd>It stops browsers guessing file types, blocks our pages from being framed by other sites, enforces HTTPS, and hides that we run Express.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>Writing each header ourselves, setting headers at a reverse proxy.</dd></div>
+          <div><dt>Why ours won</dt><dd>Hand-written headers get forgotten or misspelled over time. One well-maintained middleware covers the whole set for us.</dd></div>
+          <div><dt class="code-label">In our code</dt><dd class="code-note">We deliberately switch off Content Security Policy on our API. CSP protects pages that render HTML; our API returns JSON, and Vercel serves our HTML.</dd></div>
+        </dl>
+      </article>
+
+      <article class="adr">
+        <div class="adr-id"><h3>CORS</h3><span class="adr-ver">cors 2.8</span><p class="adr-role">Which sites may call our API</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>It tells browsers which websites we allow to call our API.</dd></div>
+          <div><dt>Why we chose it</dt><dd>It stops a malicious site from calling our API through a visitor's browser.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>Allowing every site with <code>*</code>, putting frontend and API on one domain behind a proxy.</dd></div>
+          <div><dt>Why ours won</dt><dd>A wildcard would let any website call us. A same-domain proxy would add infrastructure we don't otherwise need.</dd></div>
+          <div><dt class="code-label">In our code</dt><dd class="code-note">In production we allow exactly one origin, read from our <code>CLIENT_URL</code> environment variable.</dd></div>
+        </dl>
+      </article>
+
+      <article class="adr">
+        <div class="adr-id"><h3>express-rate-limit</h3><span class="adr-ver">8.5</span><p class="adr-role">Abuse protection</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>It counts requests per client per time window and rejects anything over the limit with HTTP 429.</dd></div>
+          <div><dt>Why we chose it</dt><dd>It stops password guessing, spam posting and message flooding on our platform.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>A Redis-backed limiter, Cloudflare or an API gateway, nginx rate limiting.</dd></div>
+          <div><dt>Why ours won</dt><dd>On our single server instance, counting in memory needs no extra infrastructure for us. Every alternative adds another service to run and pay for.</dd></div>
+          <div><dt class="code-label">In our code</dt><dd class="code-note">We run 12 limiters across 5 modules, each tuned to its action: login 10 per 15 minutes, forgot-password 5, posts 15 per hour, comments 30 per hour, chat messages 60 per 5 minutes. We can change any of these through an environment variable.</dd></div>
+          <div class="push"><b>If we're pushed on it:</b> "In-memory limits break with multiple servers." — Correct, each server would keep its own count. The same Redis step that lets us scale chat across servers also backs the rate limiter.</div>
+        </dl>
+      </article>
+
+      <article class="adr">
+        <div class="adr-id"><h3>compression</h3><span class="adr-ver">1.8</span><p class="adr-role">Smaller responses</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>It gzip-compresses our API responses before we send them.</dd></div>
+          <div><dt>Why we chose it</dt><dd>Our JSON is highly repetitive text and compresses well — faster loads for users on slow mobile connections.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>Compressing at a reverse proxy or CDN, Brotli compression.</dd></div>
+          <div><dt>Why ours won</dt><dd>Compressing inside our app behaves identically wherever we host it, with no platform-specific setup.</dd></div>
+        </dl>
+      </article>
+
+    </div>
+  </section>
+
+  <section id="media">
+    <div class="sec-head">
+      <h2>Media, email and push</h2>
+      <p>Jobs we handed to specialised tools instead of building ourselves.</p>
+    </div>
+    <div class="cards">
+
+      <article class="adr">
+        <div class="adr-id"><h3>multer</h3><span class="adr-ver">2.2</span><p class="adr-role">Receiving file uploads</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>It reads multipart form data — the format browsers use to send files.</dd></div>
+          <div><dt>Why we chose it</dt><dd>Express can't read uploaded files on its own, so we needed something in front of it.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>busboy, formidable, uploading straight from the browser to cloud storage.</dd></div>
+          <div><dt>Why ours won</dt><dd>busboy is the low-level parser multer is built on. formidable does similar work but felt less Express-native to us. Direct browser uploads would have skipped our own server-side checks on type and size.</dd></div>
+          <div><dt class="code-label">In our code</dt><dd class="code-note">Files stay in memory and never touch our server's disk. We cap uploads at 8 MB and only accept JPEG, PNG and WebP, before streaming them on to Cloudinary.</dd></div>
+        </dl>
+      </article>
+
+      <article class="adr">
+        <div class="adr-id"><h3>Cloudinary</h3><span class="adr-ver">2.10</span><p class="adr-role">Image storage and CDN</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>A hosted service that stores our images, transforms them, and serves them from servers around the world.</dd></div>
+          <div><dt>Why we chose it</dt><dd>We didn't want images consuming our API server's bandwidth or storage, and wanted them loading fast from nearby servers.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>AWS S3 with CloudFront, Firebase Storage, saving files on our own server.</dd></div>
+          <div><dt>Why ours won</dt><dd>S3 plus CloudFront is two services we'd have had to wire together, with no built-in resizing. Firebase Storage would tie us to Google. And Render's filesystem is temporary, so anything we saved on our own server would be wiped on redeploy.</dd></div>
+          <div><dt class="code-label">In our code</dt><dd class="code-note">Uploads stream straight through. When an account is deleted, we destroy every one of its images after our database transaction succeeds.</dd></div>
+        </dl>
+      </article>
+
+      <article class="adr">
+        <div class="adr-id"><h3>Resend</h3><span class="adr-ver">6.19</span><p class="adr-role">Transactional email</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>An email-sending API for messages our app triggers, like password resets.</dd></div>
+          <div><dt>Why we chose it</dt><dd>We wanted a simple developer API with a free tier, and reliable delivery without running our own mail server.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>SendGrid, Amazon SES, Nodemailer through Gmail.</dd></div>
+          <div><dt>Why ours won</dt><dd>SendGrid felt like a heavier platform for our one use case. Amazon SES starts in a sandbox we'd have to get lifted before emailing real users. A personal Gmail account has daily limits and tends to land in spam.</dd></div>
+        </dl>
+      </article>
+
+      <article class="adr">
+        <div class="adr-id"><h3>web push</h3><span class="adr-ver">web-push 3.6 · VAPID</span><p class="adr-role">Notifications</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>It delivers notifications to a user's browser even when Repvyn isn't open. VAPID is a key pair that proves the message really came from our server.</dd></div>
+          <div><dt>Why we chose it</dt><dd>It follows the open web standard, so we don't have Firebase code inside our app — each browser's own push service delivers the message.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>Firebase Cloud Messaging, OneSignal.</dd></div>
+          <div><dt>Why ours won</dt><dd>Firebase would add Google's SDK to our app and tie delivery to Google. OneSignal is a third party that would see our notification data.</dd></div>
+          <div><dt class="code-label">In our code</dt><dd class="code-note">When a browser reports a subscription as gone — HTTP 404 or 410 — we delete it automatically.</dd></div>
+        </dl>
+      </article>
+
+    </div>
+  </section>
+
+  <section id="realtime">
+    <div class="sec-head">
+      <h2>Real-time</h2>
+      <p>How we built instant chat.</p>
+    </div>
+    <div class="cards">
+
+      <article class="adr">
+        <div class="adr-id"><h3>ws</h3><span class="adr-ver">8.21</span><p class="adr-role">WebSocket server</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>A lightweight WebSocket server. Browsers connect to it using WebSocket support already built into them.</dd></div>
+          <div><dt>Why we chose it</dt><dd>We wanted chat messages to arrive instantly, without the app repeatedly asking us whether anything's new.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>Socket.IO, polling, Server-Sent Events, Pusher or Ably.</dd></div>
+          <div><dt>Why ours won</dt><dd>Socket.IO layers its own protocol and client library on top of WebSockets. Polling wastes requests and adds delay. Server-Sent Events only flow from server to client. Pusher and Ably are paid services we didn't want to depend on.</dd></div>
+          <div><dt class="code-label">In our code</dt><dd class="code-note">We mount it at <code>/ws/chat</code> on the same server. We refuse a connection unless it carries a valid token for a user who still exists, and each user's messages reach every device they have open.</dd></div>
+          <div class="push"><b>If we're pushed on it:</b> "What happens with two servers?" — Today, the list of open connections lives in one server's memory, so a message received by server A can't reach a user connected to server B. Adding Redis pub/sub is our fix: every server subscribes to one channel and delivers to whoever it's holding.</div>
+        </dl>
+      </article>
+
+    </div>
+  </section>
+
+  <section id="mobile">
+    <div class="sec-head">
+      <h2>Mobile — where we actually are</h2>
+      <p>We're being direct about this one rather than letting the slide oversell it.</p>
+    </div>
+
+    <div class="push" style="font-size:1rem;padding:16px 18px;">
+      <b>Where we actually stand:</b> our mobile app is not a finished product yet. We built it to prove one specific thing end to end — that we could pull real data out of Android Health Connect and land it in our own database — and it does that. It's not something we'd hand a judge to install today. It runs as a custom development build through <code>expo-dev-client</code>, currently only on our own phone, and it needs a proper network connection to work. Turning it into an installable app for anyone else is our next milestone, not something already done.
+    </div>
+
+    <div class="cards" style="margin-top:14px">
+
+      <article class="adr">
+        <div class="adr-id"><h3>Expo</h3><span class="adr-ver">SDK 57</span><p class="adr-role">Mobile toolchain</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>A framework and build service on top of React Native that handles native project setup, builds and device features for us.</dd></div>
+          <div><dt>Why we chose it</dt><dd>We wanted to reach Android without hand-maintaining native Android project files ourselves.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>Bare React Native, Flutter, fully native Kotlin and Swift.</dd></div>
+          <div><dt>Why ours won</dt><dd>Bare React Native would mean managing native build files ourselves. Flutter uses Dart, a second language. Fully native means two separate codebases.</dd></div>
+          <div><dt class="code-label">In our code</dt><dd class="code-note">Health Connect needs native code, so we run this as a custom development build through <code>expo-dev-client</code> rather than the standard Expo Go app — which is exactly why it isn't something we can hand someone else to open right now.</dd></div>
+        </dl>
+      </article>
+
+      <article class="adr">
+        <div class="adr-id"><h3>React Native</h3><span class="adr-ver">0.86</span><p class="adr-role">Mobile UI runtime</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>It builds mobile apps in React that render real native components, not a web page inside an app shell.</dd></div>
+          <div><dt>Why we chose it</dt><dd>We wanted the same React knowledge we already had, and the same API behind both apps.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>Flutter, Ionic with Capacitor, fully native apps.</dd></div>
+          <div><dt>Why ours won</dt><dd>Ionic renders inside a web view, which feels less native. Flutter and fully native apps don't share our language.</dd></div>
+        </dl>
+      </article>
+
+      <article class="adr">
+        <div class="adr-id"><h3>Health Connect</h3><span class="adr-ver">react-native-health-connect 4.1</span><p class="adr-role">Wearable data</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>A bridge to Android Health Connect, the system hub where Samsung Health, Fitbit and other fitness apps store health data on the phone.</dd></div>
+          <div><dt>Why we chose it</dt><dd>One integration reads from many devices for us, instead of one integration per watch brand.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>Google Fit APIs, individual vendor SDKs, Apple HealthKit.</dd></div>
+          <div><dt>Why ours won</dt><dd>Google is retiring the older Google Fit APIs in favour of Health Connect. Vendor SDKs would multiply the work per brand. HealthKit is iPhone-only.</dd></div>
+          <div><dt class="code-label">In our code</dt><dd class="code-note">We request read-only access to exactly 7 record types: heart rate, resting heart rate, heart-rate variability, steps, active calories, sleep and exercise sessions. We never write back — least privilege, and this pipeline is the one thing we've actually proven works.</dd></div>
+        </dl>
+      </article>
+
+      <article class="adr">
+        <div class="adr-id"><h3>expo-secure-store</h3><span class="adr-ver">57</span><p class="adr-role">Secrets on the phone</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>It stores small secrets encrypted with the phone's hardware-backed key storage.</dd></div>
+          <div><dt>Why we chose it</dt><dd>We didn't want sensitive values on a phone sitting in plain storage that other tools or backups could read.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>AsyncStorage, plain files.</dd></div>
+          <div><dt>Why ours won</dt><dd>AsyncStorage is unencrypted. This uses the Android Keystore and the iOS Keychain instead.</dd></div>
+        </dl>
+      </article>
+
+    </div>
+  </section>
+
+  <section id="testing">
+    <div class="sec-head">
+      <h2>Testing</h2>
+      <p>How we know the code we wrote actually works.</p>
+    </div>
+    <div class="cards">
+
+      <article class="adr">
+        <div class="adr-id"><h3>Vitest</h3><span class="adr-ver">4.1</span><p class="adr-role">Test runner</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>It runs our automated tests and reports which pass and which fail.</dd></div>
+          <div><dt>Why we chose it</dt><dd>It's built on Vite, so it shares our client's setup and runs modern JavaScript natively — one runner covers both our client and server.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>Jest, Mocha with Chai.</dd></div>
+          <div><dt>Why ours won</dt><dd>Jest needs extra configuration for modern JavaScript modules and starts slower. Mocha would have needed separate libraries for assertions and mocking.</dd></div>
+        </dl>
+      </article>
+
+      <article class="adr">
+        <div class="adr-id"><h3>supertest</h3><span class="adr-ver">7.2</span><p class="adr-role">API testing</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>It sends real HTTP requests to our Express app from inside our tests, without starting a network server.</dd></div>
+          <div><dt>Why we chose it</dt><dd>We wanted to test the full path a real client takes — middleware, authentication, validation and database.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>Calling handler functions directly, Postman or Newman collections.</dd></div>
+          <div><dt>Why ours won</dt><dd>Calling handlers directly would skip middleware — exactly where security bugs hide. Postman collections live outside our codebase and aren't part of CI by default.</dd></div>
+          <div><dt class="code-label">In our code</dt><dd class="code-note">Our integration suites cover account deletion, password reset, Google sign-in, notifications, physique posts, public profiles, and a social privacy audit.</dd></div>
+        </dl>
+      </article>
+
+      <article class="adr">
+        <div class="adr-id"><h3>mongodb-memory-server</h3><span class="adr-ver">11.2</span><p class="adr-role">Real database for tests</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>It downloads and runs a genuine MongoDB server in memory for the length of a test run.</dd></div>
+          <div><dt>Why we chose it</dt><dd>We wanted tests running against real database behaviour, not imitations of it.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>Mocking the database, a shared test database, MongoDB in Docker.</dd></div>
+          <div><dt>Why ours won</dt><dd>Mocks can pass even when real queries would fail. A shared database would let our tests interfere with each other. Docker would add a dependency to every developer machine and CI runner.</dd></div>
+          <div><dt class="code-label">In our code</dt><dd class="code-note">We start it as a single-node replica set, because MongoDB refuses transactions on a standalone server. That's what lets us genuinely test our account-deletion transaction.</dd></div>
+        </dl>
+      </article>
+
+      <article class="adr">
+        <div class="adr-id"><h3>Playwright</h3><span class="adr-ver">1.62</span><p class="adr-role">End-to-end browser testing</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>It controls a real browser — clicking, typing, navigating — to test complete user journeys.</dd></div>
+          <div><dt>Why we chose it</dt><dd>We wanted to catch bugs that only show up when our frontend, API and database work together.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>Cypress, Selenium.</dd></div>
+          <div><dt>Why ours won</dt><dd>Cypress runs inside the browser and handles multiple tabs and cross-site flows awkwardly for us. Selenium felt slower and more verbose. Playwright covers Chromium, Firefox and WebKit, and waits for elements automatically.</dd></div>
+          <div><dt class="code-label">In our code</dt><dd class="code-note">Our CI runs the critical-flow suite in Chromium after the server and client jobs pass, saves a report if anything fails, and includes a dedicated accessibility spec.</dd></div>
+        </dl>
+      </article>
+
+      <article class="adr">
+        <div class="adr-id"><h3>ESLint</h3><span class="adr-ver">10 · jsx-a11y</span><p class="adr-role">Code quality and accessibility</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>It scans our code for bugs and bad patterns before it ever runs. The jsx-a11y plugin flags accessibility mistakes, like images without descriptions or controls without labels.</dd></div>
+          <div><dt>Why we chose it</dt><dd>We wanted accessibility problems caught while we write code, not after a user can't operate the app.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>No linting, Biome, manual review only.</dd></div>
+          <div><dt>Why ours won</dt><dd>Biome is faster, but ESLint's React Hooks and jsx-a11y plugins are the most established rule sets for React that we found. Manual review misses things consistently.</dd></div>
+        </dl>
+      </article>
+
+    </div>
+  </section>
+
+  <section id="deploy">
+    <div class="sec-head">
+      <h2>Deployment and CI</h2>
+      <p>Where we run this, and what guards every release we make.</p>
+    </div>
+    <div class="cards">
+
+      <article class="adr">
+        <div class="adr-id"><h3>Render</h3><span class="adr-ver">render.yaml</span><p class="adr-role">API hosting</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>A cloud platform that runs our Node server straight from our GitHub repository.</dd></div>
+          <div><dt>Why we chose it</dt><dd>We wanted our whole service described in one file, with automatic deploys and HTTPS included.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>Heroku, Railway, AWS EC2 or ECS.</dd></div>
+          <div><dt>Why ours won</dt><dd>Heroku removed its free tier in 2022. Railway is comparable, but Render keeps our setup declarative in one committed file. AWS would mean managing our own servers, load balancers and certificates.</dd></div>
+          <div><dt class="code-label">In our code</dt><dd class="code-note">Our <code>render.yaml</code> defines the service and start command, and every secret is an environment variable, never written into our code.</dd></div>
+          <div class="push"><b>If we're pushed on it:</b> "Free tiers sleep." — Yes, honestly. Our API currently runs on Render's free plan, which sleeps when idle and cold-starts on the next request. Moving to a paid instance is a one-line configuration change for us, not a rewrite.</div>
+        </dl>
+      </article>
+
+      <article class="adr">
+        <div class="adr-id"><h3>Vercel</h3><span class="adr-ver">vercel.json</span><p class="adr-role">Web app hosting</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>It hosts our built React app on a global edge network.</dd></div>
+          <div><dt>Why we chose it</dt><dd>We wanted files served close to each user, with HTTPS and a fresh deploy on every push we make.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>Netlify, GitHub Pages, AWS S3 with CloudFront.</dd></div>
+          <div><dt>Why ours won</dt><dd>Netlify is essentially equivalent for us. GitHub Pages can't do the URL rewrite our in-browser routing needs. S3 plus CloudFront would have meant manual setup.</dd></div>
+          <div><dt class="code-label">In our code</dt><dd class="code-note">Our <code>vercel.json</code> sends every path to <code>index.html</code>, so refreshing a deep link like <code>/u/deep_16s</code> loads our app instead of a 404.</dd></div>
+        </dl>
+      </article>
+
+      <article class="adr">
+        <div class="adr-id"><h3>GitHub Actions</h3><span class="adr-ver">ci.yml</span><p class="adr-role">Continuous integration</p></div>
+        <dl>
+          <div><dt>What it is</dt><dd>It runs automated jobs every time we push code.</dd></div>
+          <div><dt>Why we chose it</dt><dd>We wanted nothing reaching our main branch without passing the same checks, automatically, every time.</dd></div>
+          <div><dt>Alternatives we weighed</dt><dd>Jenkins, CircleCI, GitLab CI.</dd></div>
+          <div><dt>Why ours won</dt><dd>Jenkins needs its own server for us to maintain. CircleCI and GitLab CI are separate platforms, when our code already lives on GitHub.</dd></div>
+          <div><dt class="code-label">In our code</dt><dd class="code-note">We run three jobs on every push and pull request to main. Server: a syntax check of every file, then unit and integration tests on in-memory MongoDB. Client: lint, unit tests and a production build. End-to-end: Playwright browser tests that only run once both of the others pass.</dd></div>
+        </dl>
+      </article>
+
+    </div>
+  </section>
+
+  <section id="hard">
+    <div class="sec-head">
+      <h2>Questions we've prepared for</h2>
+      <p>The ones we think a technical judge is most likely to ask, with the honest answer we'd actually give. We'd rather admit a trade-off than get caught bluffing on one.</p>
+    </div>
+    <div class="qa">
+
+      <div class="q">
+        <h3>Where do you store the login token? Isn't localStorage insecure?</h3>
+        <p>On the web, we keep it in localStorage. Its real risk is cross-site scripting — if someone injected a script into our page, it could read the token. Our mitigations: React escapes all rendered text by default, we use <code>dangerouslySetInnerHTML</code> zero times anywhere in our codebase, and our tokens expire after 7 days.</p>
+        <p>The alternative, an httpOnly cookie, hides the token from scripts but introduces cross-site request forgery risk — and because our site and API sit on different domains, it would need careful cross-site cookie configuration. It's a trade-off we know about, and moving to httpOnly cookies is a sensible hardening step we'd take next.</p>
+      </div>
+
+      <div class="q">
+        <h3>Is the mobile app actually usable?</h3>
+        <p>Not yet, and we'd rather say that ourselves than have someone find out. It's a working prototype that proves the Health Connect pipeline end to end — phone sensor into our database — and it only runs on our own phone today, as a development build, over a proper network connection. Making it something we could hand anyone else to install is our next milestone, not something we're claiming is already finished.</p>
+      </div>
+
+      <div class="q">
+        <h3>Why MongoDB and not a SQL database?</h3>
+        <p>Our data is document-shaped: a workout nests a variable list of sets, and cardio metrics differ completely by activity. Relational tables would need sparse columns or extra join tables for that. We don't lose integrity for it — MongoDB gives us full multi-document transactions, and we use one for account deletion.</p>
+      </div>
+
+      <div class="q">
+        <h3>How many users can it handle?</h3>
+        <p>We haven't load-tested it yet, so we won't quote a number we can't back up. What we can say: our current ceiling is the hosting plan, not the design. Our authentication is stateless, our analytics run in the browser, our images come from a CDN, and our database is indexed. Our scaling path is clustering across CPU cores, then a paid instance, then multiple instances with Redis for chat and rate limits — measured properly with a load-testing tool like k6.</p>
+      </div>
+
+      <div class="q">
+        <h3>What breaks if you run two servers?</h3>
+        <p>Two things we're aware of, both kept in one server's memory today: our list of open chat connections, and our rate-limit counters. Redis fixes both for us — pub/sub delivers chat messages across servers, and a shared store keeps one rate-limit count per user.</p>
+      </div>
+
+      <div class="q">
+        <h3>Where's the AI?</h3>
+        <p>Deliberately absent. Every insight we generate is a transparent formula — the Epley equation for estimated one-rep max, a weighted fatigue score, percentile volume ranges — and each carries an evidence-strength tag. That makes every recommendation we give explainable, costs nothing to run, and can't hallucinate. We even deleted a feature ourselves whose evidence didn't meet our own bar.</p>
+      </div>
+
+      <div class="q">
+        <h3>Isn't Node.js bad at heavy computation?</h3>
+        <p>Yes, and we know it — it's weak at long number-crunching on the server, which is exactly why we run our heavy analytics in the user's browser instead. Our server's job is mostly reading and writing the database, which is where Node's non-blocking design works in our favour.</p>
+      </div>
+
+      <div class="q">
+        <h3>Is it really a PWA, and does it work offline?</h3>
+        <p>Not yet, and we'd rather be upfront about it. A PWA needs three things: HTTPS, a web app manifest, and a service worker. We have HTTPS and a service worker; we haven't added a manifest yet. Offline logging is designed but not built: we'll write each set into an IndexedDB queue and let Background Sync deliver it on reconnect, with a fallback for browsers without Background Sync support.</p>
+        <p class="note">Worth knowing if a judge opens browser DevTools during our demo: our service worker today handles push notifications only. We'll say that ourselves rather than get caught by it.</p>
+      </div>
+
+      <div class="q">
+        <h3>What exactly happens when someone deletes their account?</h3>
+        <p>One MongoDB transaction we wrote removes their data from 24 collections — workouts, goals, health data, follows, blocks, messages, posts, comments, reactions, notifications and more. If anything fails partway through, MongoDB rolls the whole thing back for us, so an account can never be left half-deleted. Only after it succeeds do we delete their images from Cloudinary, because Cloudinary can't take part in a database transaction.</p>
+      </div>
+
+      <div class="q">
+        <h3>How do you know any of this actually works?</h3>
+        <p>GitHub Actions runs three jobs on every push we make: server tests against a real in-memory MongoDB, client linting plus unit tests plus a production build, and end-to-end tests in a real browser that only run after both of those pass. Nothing merges to our main branch unchecked.</p>
+      </div>
+
+      <div class="q">
+        <h3>Why not just build everything on Firebase?</h3>
+        <p>Firebase would lock our authentication, database, storage and notifications into one vendor, with Firestore charging per document read. Owning our own schema is also what lets us enforce privacy defaults ourselves — like profiles starting private — at the data layer.</p>
+      </div>
+
+      <div class="q">
+        <h3>Why is wearable sync Android-only?</h3>
+        <p>Health Connect is Android's system-level health hub, and Google is retiring its older Google Fit APIs in favour of it. iPhone support would mean adding an Apple HealthKit bridge that feeds the same backend models we already have — our server side wouldn't need to change.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <section id="appendix">
+    <div class="sec-head">
+      <h2>Appendix: a few terms, for reference</h2>
+      <p>Not the point of this document — just here in case a specific word needs pinning down.</p>
+    </div>
+    <dl class="glossary">
+      <div class="term"><dt>REST endpoint</dt><dd>One request our API accepts, like <code>GET /api/workouts</code> to fetch workouts or <code>POST /api/workouts</code> to save one. We have 102.</dd></div>
+      <div class="term"><dt>Middleware</dt><dd>A checkpoint every request passes before it reaches our real logic — security headers, rate limits, login checks.</dd></div>
+      <div class="term"><dt>Collection</dt><dd>MongoDB's version of a table. We have 26.</dd></div>
+      <div class="term"><dt>Index</dt><dd>A lookup shortcut so our database finds records without scanning everything. We have 53.</dd></div>
+      <div class="term"><dt>ODM</dt><dd>Object Data Mapper: turns our database documents into JavaScript objects and validates them. Mongoose is ours.</dd></div>
+      <div class="term"><dt>Transaction</dt><dd>Database writes that all succeed together or all get undone. We use one for account deletion.</dd></div>
+      <div class="term"><dt>Replica set</dt><dd>Several MongoDB servers holding copies of the same data. MongoDB only allows transactions on one.</dd></div>
+      <div class="term"><dt>JWT</dt><dd>A signed pass we hand a user at login, which they show us on every later request.</dd></div>
+      <div class="term"><dt>Hashing vs encryption</dt><dd>Encryption reverses with a key. Hashing doesn't. We hash passwords, never encrypt them.</dd></div>
+      <div class="term"><dt>WebSocket</dt><dd>A connection that stays open so we can push messages instantly instead of polling.</dd></div>
+      <div class="term"><dt>CORS</dt><dd>A browser rule on which sites may call our API. We allow only our own, in production.</dd></div>
+      <div class="term"><dt>PWA</dt><dd>A site with a manifest file and a service worker, installable and offline-capable. We're not there yet.</dd></div>
+      <div class="term"><dt>Service worker</dt><dd>A background script apart from the page. Ours currently handles push notifications.</dd></div>
+      <div class="term"><dt>IndexedDB</dt><dd>A real, structured database built into every browser, usable while offline.</dd></div>
+      <div class="term"><dt>Unit, integration, E2E</dt><dd>Unit tests check one function, integration tests check pieces together, end-to-end drives a real browser.</dd></div>
+      <div class="term"><dt>Stateless</dt><dd>Our server keeps no login memory between requests — each request proves itself with its own token.</dd></div>
+    </dl>
+  </section>
+
+  <footer class="pagefoot">
+    Team Repvyn · prepared for our SIH 2026 technical approach slide (PS26196)
+  </footer>
+
+</main>
+</body>
+</html>
