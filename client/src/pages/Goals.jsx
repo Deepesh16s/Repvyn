@@ -706,8 +706,8 @@ function Goals() {
 
       {showModal && (
         <div className="goal-modal-overlay">
-          <div className="goal-modal">
-            <h2>{editingGoal ? "Edit Goal" : "Create Goal"}</h2>
+          <div className="goal-modal" role="dialog" aria-modal="true" aria-labelledby="goal-modal-title">
+            <h2 id="goal-modal-title">{editingGoal ? "Edit Goal" : "Create Goal"}</h2>
             <form onSubmit={handleSubmit}>
               <input
                 type="text"

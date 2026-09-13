@@ -78,12 +78,12 @@ function AddCardioModal({ closeModal, onAddCardio }) {
 
   return (
     <div className="modal-overlay">
-      <div className="modal-card">
+      <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="add-cardio-modal-title">
         <button type="button" className="close-btn" onClick={closeModal} aria-label="Close">
           ✕
         </button>
 
-        <h2>Add Cardio</h2>
+        <h2 id="add-cardio-modal-title">Add Cardio</h2>
 
         <form onSubmit={handleSubmit}>
           <label htmlFor="cardio-activity-type">Activity Type</label>

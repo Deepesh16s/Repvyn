@@ -164,7 +164,7 @@ function Register() {
               {usernameStatus === "available" && (
                 <p className="auth-hint auth-hint-success">@{username} is available</p>
               )}
-              {usernameStatus === "taken" && <p className="auth-error">{usernameMsg}</p>}
+              {usernameStatus === "taken" && <p className="auth-error" role="alert">{usernameMsg}</p>}
             </div>
 
             <div className="auth-field">
@@ -201,7 +201,7 @@ function Register() {
               />
             </div>
 
-            {formError && <p className="auth-error">{formError}</p>}
+            {formError && <p className="auth-error" role="alert">{formError}</p>}
 
             <button type="submit" className="auth-btn" disabled={isSubmitting}>
               {isSubmitting ? "Creating Account..." : "Create Account"}

@@ -159,12 +159,12 @@ function AddWorkoutModal({ closeModal, onAddExercise, mode = "add" }) {
 
   return (
     <div className="modal-overlay">
-      <div className="modal-card">
+      <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="add-workout-modal-title">
         <button type="button" className="close-btn" onClick={closeModal} aria-label="Close">
           ✕
         </button>
 
-        <h2>{isReplaceMode ? "Replace Exercise" : "Add Exercise"}</h2>
+        <h2 id="add-workout-modal-title">{isReplaceMode ? "Replace Exercise" : "Add Exercise"}</h2>
 
         <form onSubmit={handleSubmit}>
           <label htmlFor="add-workout-muscle-group">Muscle Group</label>

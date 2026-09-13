@@ -414,11 +414,16 @@ function WorkoutSession({
 
       {showDiscardConfirm && (
         <div className="finish-confirm-overlay">
-          <div className="finish-confirm-card">
+          <div
+            className="finish-confirm-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="discard-confirm-title"
+          >
             <div className="finish-confirm-icon finish-confirm-icon--danger">
               <AlertTriangle size={22} strokeWidth={1.8} />
             </div>
-            <p className="finish-confirm-title">Discard Workout?</p>
+            <p className="finish-confirm-title" id="discard-confirm-title">Discard Workout?</p>
             <p className="finish-confirm-body">
               {entries.length} {entries.length === 1 ? "entry" : "entries"} and {totalSets}{" "}
               {totalSets === 1 ? "set" : "sets"} logged so far will be lost. This can't be undone.

@@ -24,7 +24,12 @@ function FinishWorkoutSummary({ summary, onClose }) {
 
   return (
     <div className="finish-summary-overlay">
-      <div className="finish-summary-card">
+      <div
+        className="finish-summary-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="finish-summary-title"
+      >
         <button
           type="button"
           className="finish-summary-close"
@@ -37,7 +42,7 @@ function FinishWorkoutSummary({ summary, onClose }) {
         <div className="finish-summary-icon">
           <CheckCircle2 size={28} strokeWidth={1.8} />
         </div>
-        <p className="finish-summary-title">Workout Complete</p>
+        <p className="finish-summary-title" id="finish-summary-title">Workout Complete</p>
 
         <div className="finish-summary-grid">
           <div className="finish-summary-stat">

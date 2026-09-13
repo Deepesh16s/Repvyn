@@ -74,7 +74,7 @@ function ForgotPassword() {
                 />
               </div>
 
-              {error && <p className="auth-error">{error}</p>}
+              {error && <p className="auth-error" role="alert">{error}</p>}
 
               <button className="auth-btn" type="submit" disabled={loading}>
                 {loading ? "Sending..." : "Send Reset Link"}
