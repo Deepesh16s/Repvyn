@@ -45,10 +45,15 @@
   .numbers ul{list-style:none;margin:12px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px 18px}
   .numbers li{display:flex;align-items:baseline;gap:9px;font-size:.93rem;color:var(--muted)}
   .numbers b{font-family:var(--f-display);font-size:1.25rem;color:var(--ink);font-variant-numeric:tabular-nums;min-width:2.2ch}
-  nav.toc{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);margin-top:34px}
-  nav.toc .in{max-width:980px;margin:0 auto;padding-inline:20px;display:flex;gap:6px;overflow-x:auto;padding-block:10px}
-  nav.toc a{flex:none;font-size:.86rem;text-decoration:none;color:var(--muted);padding:5px 11px;border-radius:999px;border:1px solid var(--line);background:var(--surface);white-space:nowrap}
-  nav.toc a:hover{color:var(--ink);border-color:var(--accent)}
+  details.toc{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);margin-top:34px}
+  details.toc summary{list-style:none;cursor:pointer;max-width:980px;margin:0 auto;padding:13px 20px;font-family:var(--f-mono);font-size:.88rem;color:var(--muted);display:flex;align-items:center;gap:9px;user-select:none}
+  details.toc summary::-webkit-details-marker{display:none}
+  details.toc summary::before{content:"▸";display:inline-block;color:var(--accent);transition:transform .15s ease}
+  details.toc[open] summary::before{transform:rotate(90deg)}
+  details.toc summary:hover{color:var(--ink)}
+  details.toc nav{max-width:980px;margin:0 auto;padding:2px 20px 16px;display:flex;flex-direction:column;gap:2px;max-height:65vh;overflow-y:auto}
+  details.toc nav a{text-decoration:none;color:var(--ink);font-size:.94rem;padding:9px 13px;border-radius:7px}
+  details.toc nav a:hover{background:var(--surface-2)}
   section{padding-top:52px}
   .sec-head{margin-bottom:20px;max-width:70ch}
   .sec-head h2{font-size:1.65rem;font-weight:700}
@@ -128,22 +133,25 @@
   </header>
 </div>
 
-<nav class="toc" aria-label="Sections"><div class="in">
-  <a href="#pitch">Preview</a>
-  <a href="#flow">How a request flows</a>
-  <a href="#layers">Our five layers</a>
-  <a href="#frontend">Frontend</a>
-  <a href="#backend">Backend &amp; data</a>
-  <a href="#auth">Auth</a>
-  <a href="#security">Security</a>
-  <a href="#media">Media · email · push</a>
-  <a href="#realtime">Real-time</a>
-  <a href="#mobile">Mobile</a>
-  <a href="#testing">Testing</a>
-  <a href="#deploy">Deployment &amp; CI</a>
-  <a href="#hard">Common questions and doubts</a>
-  <a href="#appendix">Appendix: terms</a>
-</div></nav>
+<details class="toc" id="tocMenu">
+  <summary>Jump to a section</summary>
+  <nav aria-label="Sections">
+    <a href="#pitch">Preview</a>
+    <a href="#flow">How a request flows</a>
+    <a href="#layers">Our five layers</a>
+    <a href="#frontend">Frontend</a>
+    <a href="#backend">Backend &amp; data</a>
+    <a href="#auth">Auth</a>
+    <a href="#security">Security</a>
+    <a href="#media">Media · email · push</a>
+    <a href="#realtime">Real-time</a>
+    <a href="#mobile">Mobile</a>
+    <a href="#testing">Testing</a>
+    <a href="#deploy">Deployment &amp; CI</a>
+    <a href="#hard">Common questions and doubts</a>
+    <a href="#appendix">Appendix: terms</a>
+  </nav>
+</details>
 
 <main class="page" style="padding-top:0">
 
@@ -804,5 +812,13 @@
   </footer>
 
 </main>
+
+<script>
+  document.querySelectorAll('#tocMenu nav a').forEach(function (link) {
+    link.addEventListener('click', function () {
+      document.getElementById('tocMenu').removeAttribute('open');
+    });
+  });
+</script>
 </body>
 </html>
