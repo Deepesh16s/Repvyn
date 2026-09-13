@@ -149,8 +149,8 @@
 
   <section id="pitch">
     <div class="sec-head">
-      <h2>What we say when someone asks us to walk through it</h2>
-      <p>This is our answer when a judge asks "walk me through your architecture." Everything after it is what we fall back on if they dig deeper.</p>
+      <h2>Our 30-second answer</h2>
+      <p>What we say when a judge asks us to walk through the architecture. Everything after this is what we fall back on if they dig deeper.</p>
     </div>
     <p class="pitch">So we're JavaScript from front to back. The web app's built in React with Vite, and it's served off Vercel's edge network, so it loads fast wherever you are. On mobile we're using React Native through Expo, and that side also pulls in wearable data from Android Health Connect — though we'll be upfront that the mobile app is a working prototype right now, not something we'd hand a judge to install; more on that later. Both the web app and the API talk to one backend — a Node and Express API we run on Render, with 102 REST endpoints spread across 16 route modules, plus a WebSocket for live chat. All our data lives in MongoDB through Mongoose: 26 collections, 53 indexes so lookups stay fast. For the things we didn't think we should build ourselves, we lean on outside services — Cloudinary handles images, Resend sends email, and notifications go out through standard web push. And every single request has to get past security headers, a locked-down CORS policy, rate limits, and token verification before it touches anything. The analytics you'd see in the app are actually just deterministic formulas we run right in the browser — there's no AI model anywhere in this, and that's on purpose. And nothing we write ships without going through GitHub Actions first: syntax checks, real tests against an actual in-memory MongoDB, a production build, and full browser tests end to end.</p>
   </section>
