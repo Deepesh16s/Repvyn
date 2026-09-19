@@ -1,6 +1,7 @@
 process.env.AUTH_RATE_LIMIT_MAX = "1000";
 process.env.AUTH_FORGOT_PASSWORD_RATE_LIMIT_MAX = "1000";
 
+const crypto = require("crypto");
 const request = require("supertest");
 const app = require("../../app");
 const User = require("../../models/User");
@@ -255,5 +256,57 @@ describe("name-search index", () => {
       .hint("name_1")
       .explain("queryPlanner");
     expect(JSON.stringify(plan.queryPlanner.winningPlan)).toContain("IXSCAN");
+  });
+});
+
+describe("requests with no body at all", () => {
+  it.each([
+    ["/api/auth/login"],
+    ["/api/auth/register"],
+    ["/api/auth/forgot-password"],
+    ["/api/auth/google"],
+  ])("returns 400, not 500, for POST %s", async (path) => {
+    const res = await request(app).post(path);
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400, not 500, for a push subscription with no body", async () => {
+    const user = await createUser();
+    const res = await authed(user)("post", "/api/push/subscriptions");
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("accounts that predate the name and email rules", () => {
+  it("lets an account whose stored name is over 60 characters still change its password", async () => {
+    const user = await createUser({ name: "L".repeat(100) });
+    const res = await authed(user)("put", "/api/auth/change-password").send({
+      oldPassword: "Test1234!",
+      newPassword: "NewPassw0rd!",
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it("lets an account whose stored name is over 60 characters complete a password reset", async () => {
+    const user = await createUser({ name: "L".repeat(100) });
+    await User.updateOne(
+      { _id: user._id },
+      {
+        resetPasswordToken: crypto.createHash("sha256").update("known-reset-token").digest("hex"),
+        resetPasswordExpires: Date.now() + 60000,
+      }
+    );
+    const res = await request(app)
+      .post("/api/auth/reset-password/known-reset-token")
+      .send({ newPassword: "NewPassw0rd!" });
+    expect(res.status).toBe(200);
+  });
+
+  it("lets an account whose stored email has surrounding spaces log in when typed exactly as stored", async () => {
+    await createUser({ email: " padded@test.local " });
+    const res = await request(app)
+      .post("/api/auth/login")
+      .send({ email: " padded@test.local ", password: "Test1234!" });
+    expect(res.status).toBe(200);
   });
 });

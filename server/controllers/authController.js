@@ -605,7 +605,7 @@ exports.googleLogin = async (req, res) => {
 
     if (!user) {
       user = await User.create({
-        name: String(name || "").trim().slice(0, NAME_MAX_LENGTH) || normalizedEmail.split("@")[0],
+        name: (String(name || "").trim() || normalizedEmail.split("@")[0]).slice(0, NAME_MAX_LENGTH),
         email: normalizedEmail,
         googleId: sub,
         picture,

@@ -1,10 +1,8 @@
 const mongoose = require("mongoose");
-const { NAME_MAX_LENGTH } = require("../constants/userLimits");
 const userSchema = new mongoose.Schema({
     name: {
         type: String,
-        required: true,
-        maxlength: NAME_MAX_LENGTH
+        required: true
     },
     email: {
         type: String,

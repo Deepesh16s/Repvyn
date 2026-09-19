@@ -104,6 +104,15 @@ describe("POST /api/auth/google", () => {
     expect(stored.name).toHaveLength(60);
   });
 
+  it("keeps the fallback display name within the limit when Google sends no name and the email is long", async () => {
+    const email = `${"x".repeat(64)}@test.local`;
+    verifyIdTokenSpy.mockResolvedValueOnce(mockTicket({ email, name: undefined }));
+    const res = await request(app).post("/api/auth/google").send({ token: "valid-token" });
+    expect(res.status).toBe(200);
+    const stored = await User.findOne({ email });
+    expect(stored.name).toHaveLength(60);
+  });
+
   it("signs a returning user in to the same account when Google reports a different email case", async () => {
     await createUser({ email: "returning.google@test.local" });
     verifyIdTokenSpy.mockResolvedValueOnce(mockTicket({ email: "Returning.Google@Test.local" }));

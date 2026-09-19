@@ -34,6 +34,10 @@ app.use(compression());
 
 app.use(cors(isProduction ? { origin: process.env.CLIENT_URL } : {}));
 app.use(express.json());
+app.use((req, res, next) => {
+  if (req.body === undefined) req.body = {};
+  next();
+});
 app.use(rejectOperatorKeys);
 
 if (!isProduction && process.env.NODE_ENV !== "test") {

@@ -13,11 +13,14 @@ function escapeRegExp(value) {
 }
 
 async function findUserByEmail(rawEmail) {
-  const trimmed = String(rawEmail).trim();
-  const normalized = trimmed.toLowerCase();
-  const exact = await User.findOne({ email: trimmed });
-  if (exact || trimmed === normalized) return exact;
-  return User.findOne({ email: normalized });
+  const typed = String(rawEmail);
+  const candidates = [...new Set([typed, typed.trim(), normalizeEmail(typed)])];
+  const matches = await User.find({ email: { $in: candidates } }).limit(candidates.length);
+  for (const email of candidates) {
+    const match = matches.find((user) => user.email === email);
+    if (match) return match;
+  }
+  return null;
 }
 
 module.exports = { isString, normalizeEmail, escapeRegExp, findUserByEmail };
