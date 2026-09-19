@@ -2,7 +2,7 @@
 
 Base URL: `{VITE_API_URL}` (default `http://localhost:5000/api`). All bodies/responses are JSON.
 
-Auth: routes marked **JWT** require `Authorization: Bearer <token>`, obtained from `/auth/login`, `/auth/register`, or `/auth/google`. An expired/invalid/missing token returns `401 { message: "Not authorized" }` (or `"Not authorized, no token"`). Every resource endpoint additionally scopes to the requesting user — you cannot read or mutate another user's data by guessing an id (a mismatched owner returns `401`/`403`/`404` depending on the endpoint, see below).
+Auth: routes marked **JWT** require `Authorization: Bearer <token>`, obtained from `/auth/login`, `/auth/register`, or `/auth/google`. An expired/invalid/missing token returns `401 { message: "Not authorized" }` (or `"Not authorized, no token"`). Any request body or query string containing a key that starts with `$` is rejected up front with `400 { message: "Malformed request body" }`. Every resource endpoint additionally scopes to the requesting user — you cannot read or mutate another user's data by guessing an id (a mismatched owner returns `401`/`403`/`404` depending on the endpoint, see below).
 
 Unhandled/unexpected server errors return `500 { message: "Server Error" }` (or a resource-specific message) and never include stack traces or internals. A malformed JSON request body returns `400 { message: "Malformed request body" }`. An unknown route returns `404 { message: "Route not found" }`.
 
@@ -12,13 +12,13 @@ Unhandled/unexpected server errors return `500 { message: "Server Error" }` (or 
 
 | Method | Endpoint | Auth | Purpose | Body | Notes |
 |---|---|---|---|---|---|
-| POST | `/register` | Public (rate-limited) | Create an account | `name, email, password` | Seeds default exercises for the new user. `400` on missing fields, invalid email format, password < 6 chars, or existing email. |
-| POST | `/login` | Public (rate-limited) | Email/password login | `email, password` | Returns `{ token, user }`. `400 "Invalid Email or Password"` on any failure (no distinction between wrong email vs. wrong password). |
+| POST | `/register` | Public (rate-limited) | Create an account | `name, email, password, username` | Seeds default exercises for the new user. Email is trimmed and lowercased before it is stored or compared, so a case variant of an existing email counts as taken. `400` on missing or non-string fields, name over 60 characters, invalid email format, password < 6 chars, or existing email. |
+| POST | `/login` | Public (rate-limited) | Email/password login | `email, password` | Returns `{ token, user }`. `400 "Invalid Email or Password"` on any failure (no distinction between wrong email vs. wrong password). `400 "Email and password are required"` when either is missing or not a string. |
 | POST | `/google` | Public | Google Sign-In | `token` (Google ID token) | Verifies the ID token server-side; creates the user on first sign-in (seeds default exercises). Returns `{ token, user }`. `500 "Google Login Failed"` on verification failure. |
-| POST | `/forgot-password` | Public (rate-limited) | Request a reset email | `email` | Always returns `200` with a generic message regardless of whether the email exists, to avoid leaking account existence. |
+| POST | `/forgot-password` | Public (rate-limited) | Request a reset email | `email` | Always returns `200` with a generic message regardless of whether the email exists, to avoid leaking account existence. `400` only when `email` is missing or not a string. |
 | POST | `/reset-password/:token` | Public | Complete a reset | `newPassword` | `token` is the raw token from the emailed link (hashed server-side before lookup); expires 15 minutes after request. `400` if invalid/expired or password < 6 chars. |
 | GET | `/me` | JWT | Current user | — | Returns `req.user` (password/reset fields excluded). |
-| PUT | `/profile` | JWT | Update display name | `name` | |
+| PUT | `/profile` | JWT | Update display name | `name` | `400` when empty, not a string, or over 60 characters. |
 | PUT | `/change-password` | JWT | Change password | `oldPassword, newPassword` | `400` if `oldPassword` doesn't match. |
 | DELETE | `/account` | JWT | Delete own account | — | Deletes the `User` document only — related workouts/goals/exercises/etc. are not cascade-deleted (see README known limitations). |
 
@@ -102,7 +102,7 @@ All `GET`, all `JWT`, no body. Every value is computed from the caller's own wor
 
 | Method | Endpoint | Auth | Purpose | Body |
 |---|---|---|---|---|
-| POST | `/subscriptions` | JWT | Register/refresh this browser's push subscription | `{ subscription: { endpoint, keys: { p256dh, auth } } }` (or the same shape at the top level) |
+| POST | `/subscriptions` | JWT | Register/refresh this browser's push subscription | `{ subscription: { endpoint, keys: { p256dh, auth } } }` (or the same shape at the top level). `endpoint` must be an `https` URL on a known push service (Google FCM, Mozilla, Apple, or Windows notify hosts) with no credentials or custom port, and both keys must be base64url text; anything else returns `400`. |
 | DELETE | `/subscriptions` | JWT | Remove this browser's subscription | `endpoint` |
 | GET | `/preferences` | JWT | Get push preferences | — (returns defaults if never set) |
 | PUT | `/preferences` | JWT | Update push preferences | `pushEnabled?: boolean`, `quietHours?: { enabled?, start?, end?, mode?: "allow"\|"criticalOnly"\|"suppressAll" }` |
