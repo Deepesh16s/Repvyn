@@ -86,6 +86,97 @@ describe("GET /api/users/search (discoverability)", () => {
     expect(res.body.users.map((u) => u.username)).not.toContain(target.username);
   });
 
+  it("does not treat spaces or punctuation inside a query as part of a username", async () => {
+    const target = await createUser({ profileVisibility: "private", username: "abcdef" });
+    const viewer = await createUser();
+    for (const q of ["a b c d e f", "a!b@c#d$e%f", "abc-def", "abc.def", "ab_cdef", "abcdef!"]) {
+      const res = await authed(viewer)("get", `/api/users/search?q=${encodeURIComponent(q)}`);
+      expect(res.status).toBe(200);
+      expect(res.body.users.map((u) => u.username), `query "${q}"`).not.toContain(target.username);
+    }
+  });
+
+  it("does not let a non-ASCII lookalike resolve to an ASCII username, by search or profile route", async () => {
+    await createUser({ profileVisibility: "private", username: "katlas" });
+    const viewer = await createUser();
+    const lookalike = "Katlas";
+
+    const signedIn = await authed(viewer)("get", `/api/users/search?q=${encodeURIComponent(lookalike)}`);
+    expect(signedIn.body.users.map((u) => u.username)).not.toContain("katlas");
+
+    const signedOut = await request(app).get(`/api/users/search?q=${encodeURIComponent(lookalike)}`);
+    expect(signedOut.body.users.map((u) => u.username)).not.toContain("katlas");
+
+    const profile = await authed(viewer)("get", `/api/users/${encodeURIComponent(lookalike)}`);
+    expect(profile.status).toBe(404);
+
+    const control = await authed(viewer)("get", "/api/users/search?q=katlas");
+    expect(control.body.users.map((u) => u.username)).toContain("katlas");
+  });
+
+  it("ignores surrounding whitespace and letter case around an otherwise exact username", async () => {
+    const target = await createUser({ profileVisibility: "private", username: "abcdef" });
+    const viewer = await createUser();
+    const res = await authed(viewer)("get", `/api/users/search?q=${encodeURIComponent("  ABCDEF ")}`);
+    expect(res.body.users.map((u) => u.username)).toContain(target.username);
+  });
+
+  it("resolves an exact username for a signed-out visitor", async () => {
+    const target = await createUser({ profileVisibility: "public", username: "signedout1" });
+    const res = await request(app).get("/api/users/search?q=signedout1");
+    expect(res.status).toBe(200);
+    expect(res.body.users.map((u) => u.username)).toContain(target.username);
+  });
+
+  it("does not run name search for a signed-out visitor", async () => {
+    await createUser({
+      profileVisibility: "public",
+      name: "Zebra Quokka",
+      discoverableByName: true,
+    });
+    const res = await request(app).get("/api/users/search?q=Zebra");
+    expect(res.status).toBe(200);
+    expect(res.body.users).toHaveLength(0);
+  });
+
+  it("does not run name search for a query shorter than 3 characters", async () => {
+    await createUser({
+      profileVisibility: "public",
+      name: "Zebra Quokka",
+      discoverableByName: true,
+    });
+    const viewer = await createUser();
+    for (const q of ["z", "ze"]) {
+      const res = await authed(viewer)("get", `/api/users/search?q=${q}`);
+      expect(res.status).toBe(200);
+      expect(res.body.users).toHaveLength(0);
+    }
+  });
+
+  it("does not run name search for an overlong query", async () => {
+    await createUser({
+      profileVisibility: "public",
+      name: "Zebra Quokka",
+      discoverableByName: true,
+    });
+    const viewer = await createUser();
+    const res = await authed(viewer)("get", `/api/users/search?q=${"z".repeat(51)}`);
+    expect(res.status).toBe(200);
+    expect(res.body.users).toHaveLength(0);
+  });
+
+  it("treats regex characters in a name query literally", async () => {
+    await createUser({
+      profileVisibility: "public",
+      name: "Zebra Quokka",
+      discoverableByName: true,
+    });
+    const viewer = await createUser();
+    const res = await authed(viewer)("get", `/api/users/search?q=${encodeURIComponent(".*")}`);
+    expect(res.status).toBe(200);
+    expect(res.body.users).toHaveLength(0);
+  });
+
   it("surfaces a private account to anyone by its exact username", async () => {
     const target = await createUser({ profileVisibility: "private" });
     const viewer = await createUser();

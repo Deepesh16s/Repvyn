@@ -3,10 +3,10 @@ const User = require("../models/User");
 const MIN_LENGTH = 3;
 const MAX_LENGTH = 20;
 const GENERATED_BASE_LENGTH = 10;
-const VALID_CHARS = /^[a-z0-9_]+$/;
+const VALID_CHARS = /^[A-Za-z0-9_]+$/;
 
 function normalize(raw) {
-  return String(raw || "").toLowerCase();
+  return String(raw || "").replace(/[A-Z]/g, (letter) => letter.toLowerCase());
 }
 
 function stripInvalidChars(value) {
@@ -15,10 +15,9 @@ function stripInvalidChars(value) {
 
 function validateFormat(username) {
   if (typeof username !== "string") return "Username is required";
-  const value = normalize(username);
-  if (value.length < MIN_LENGTH) return `Username must be at least ${MIN_LENGTH} characters`;
-  if (value.length > MAX_LENGTH) return `Username must be at most ${MAX_LENGTH} characters`;
-  if (!VALID_CHARS.test(value)) return "Username can only contain lowercase letters, numbers, and underscores";
+  if (username.length < MIN_LENGTH) return `Username must be at least ${MIN_LENGTH} characters`;
+  if (username.length > MAX_LENGTH) return `Username must be at most ${MAX_LENGTH} characters`;
+  if (!VALID_CHARS.test(username)) return "Username can only contain lowercase letters, numbers, and underscores";
   return null;
 }
 

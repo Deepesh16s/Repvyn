@@ -18,6 +18,27 @@ describe("username.normalize", () => {
     expect(normalize(null)).toBe("");
     expect(normalize(undefined)).toBe("");
   });
+
+  it("does not strip spaces or punctuation", () => {
+    expect(normalize("a b c")).toBe("a b c");
+    expect(normalize("a!b@c")).toBe("a!b@c");
+  });
+
+  it("never turns a character outside [A-Za-z0-9_] into a valid username character", () => {
+    const offenders = [];
+    for (let codePoint = 0; codePoint <= 0x10ffff; codePoint++) {
+      const character = String.fromCodePoint(codePoint);
+      if (/^[A-Za-z0-9_]$/.test(character)) continue;
+      if (/^[a-z0-9_]+$/.test(normalize(character))) {
+        offenders.push(`U+${codePoint.toString(16).toUpperCase()}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("does not fold the Kelvin sign into an ASCII k", () => {
+    expect(normalize("Katlas")).not.toBe("katlas");
+  });
 });
 
 describe("username.validateFormat", () => {
@@ -32,6 +53,18 @@ describe("username.validateFormat", () => {
   });
   it("accepts a valid username", () => {
     expect(validateFormat("valid_user123")).toBeNull();
+  });
+  it("accepts ASCII uppercase, which is lowercased later for lookup", () => {
+    expect(validateFormat("Valid_User123")).toBeNull();
+  });
+  it("validates the raw input, so spaces and punctuation are never dropped to make it valid", () => {
+    expect(validateFormat("a b c d e f")).toMatch(/can only contain/);
+    expect(validateFormat("a!b@c#d$e%f")).toMatch(/can only contain/);
+    expect(validateFormat("abc-def")).toMatch(/can only contain/);
+    expect(validateFormat(" abcdef")).toMatch(/can only contain/);
+  });
+  it("rejects non-ASCII lookalikes that would lowercase into a valid username", () => {
+    expect(validateFormat("Katlas")).toMatch(/can only contain/);
   });
   it("rejects non-string input", () => {
     expect(validateFormat(undefined)).toMatch(/required/);

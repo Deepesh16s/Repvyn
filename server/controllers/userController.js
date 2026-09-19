@@ -5,7 +5,8 @@ const Block = require("../models/Block");
 const Workout = require("../models/workout");
 const Badge = require("../models/Badge");
 const Activity = require("../models/Activity");
-const { normalize: normalizeUsername } = require("../utils/username");
+const { normalize: normalizeUsername, validateFormat: validateUsernameFormat } = require("../utils/username");
+const { escapeRegExp } = require("../utils/userInput");
 const { toPublicUser: basePublicUser } = require("../utils/publicUser");
 const { isBlockedEitherWay, getViewerBlockSet } = require("../utils/blocking");
 const { canViewContent } = require("../utils/contentVisibility");
@@ -27,6 +28,8 @@ const { createNotificationIfNew } = require("../utils/notificationService");
 const { NOTIFICATION_TYPES } = require("../constants/notificationTypes");
 
 const MAX_SEARCH_RESULTS = 20;
+const MIN_NAME_SEARCH_LENGTH = 3;
+const MAX_NAME_SEARCH_LENGTH = 50;
 const MAX_LIST_RESULTS = 50;
 const MAX_SESSION_PAGE_SIZE = 30;
 const MAX_ACTIVITY_PAGE_SIZE = 30;
@@ -88,32 +91,35 @@ async function getViewerPendingRequestSet(viewerId, targetIds) {
   return new Set(requests.map((r) => String(r.target)));
 }
 
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 exports.searchUsers = async (req, res) => {
   try {
     const rawQuery = String(req.query.q || "").trim();
-    const usernameQuery = rawQuery.toLowerCase().replace(/[^a-z0-9_]/g, "");
 
     if (!rawQuery) {
       return res.status(200).json({ users: [] });
     }
 
     const viewerId = req.user?._id;
+    const isExactUsernameQuery = validateUsernameFormat(rawQuery) === null;
+    const usernameQuery = isExactUsernameQuery ? normalizeUsername(rawQuery) : null;
+    const canSearchByName =
+      !!viewerId &&
+      rawQuery.length >= MIN_NAME_SEARCH_LENGTH &&
+      rawQuery.length <= MAX_NAME_SEARCH_LENGTH;
 
     const [usernameMatch, nameMatches] = await Promise.all([
-      usernameQuery
+      isExactUsernameQuery
         ? User.findOne({ username: usernameQuery }).select("username name picture profileVisibility")
         : null,
-      User.find({
-        profileVisibility: "public",
-        discoverableByName: true,
-        name: { $regex: escapeRegExp(rawQuery), $options: "i" },
-      })
-        .select("username name picture profileVisibility")
-        .limit(MAX_SEARCH_RESULTS),
+      canSearchByName
+        ? User.find({
+            profileVisibility: "public",
+            discoverableByName: true,
+            name: { $regex: escapeRegExp(rawQuery), $options: "i" },
+          })
+            .select("username name picture profileVisibility")
+            .limit(MAX_SEARCH_RESULTS)
+        : [],
     ]);
 
     const candidates = new Map();
@@ -241,8 +247,6 @@ exports.getPublicProfile = async (req, res) => {
       ]);
 
     const isBlocked = !!hasBlocked || !!blockedByOwner;
-    // isFollowing already reflects "viewer exists, isn't self, and follows this profile" (see above),
-    // so both checks below can reuse it instead of re-querying Follow.exists.
     const canSeeContent = isBlocked ? false : isSelf || visibility === "public" || !!isFollowing;
     const heatmapVisible = isBlocked
       ? false

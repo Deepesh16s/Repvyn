@@ -5,6 +5,8 @@ import { searchUsers, followUser, unfollowUser } from "../services/socialService
 import Avatar from "../components/Avatar";
 import "./userSearch.css";
 
+const MIN_QUERY_LENGTH = 3;
+
 function UserSearch() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
@@ -16,7 +18,7 @@ function UserSearch() {
 
   useEffect(() => {
     const trimmed = query.trim();
-    if (!trimmed) {
+    if (trimmed.length < MIN_QUERY_LENGTH) {
       setResults([]);
       setHasSearched(false);
       setError(false);
@@ -89,6 +91,10 @@ function UserSearch() {
           onChange={(e) => setQuery(e.target.value)}
         />
       </div>
+
+      {query.trim().length > 0 && query.trim().length < MIN_QUERY_LENGTH && (
+        <p className="user-search-hint">Type at least {MIN_QUERY_LENGTH} characters to search.</p>
+      )}
 
       {searching && <p className="user-search-hint">Searching...</p>}
 
