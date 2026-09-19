@@ -63,9 +63,11 @@ function attach(httpServer) {
       }
 
       const userId = String(user._id);
-      if ((connections.get(userId)?.size || 0) >= MAX_CONNECTIONS_PER_USER) {
-        ws.close(CLOSE_TOO_MANY_CONNECTIONS, "Too many connections");
-        return;
+      const existing = connections.get(userId);
+      if (existing && existing.size >= MAX_CONNECTIONS_PER_USER) {
+        const oldest = existing.values().next().value;
+        unregisterConnection(userId, oldest);
+        oldest.close(CLOSE_TOO_MANY_CONNECTIONS, "Superseded by a newer connection");
       }
 
       registeredUserId = userId;

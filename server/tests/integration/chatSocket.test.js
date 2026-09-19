@@ -85,7 +85,7 @@ describe("chat WebSocket hardening", () => {
     healthy.close();
   });
 
-  it("caps simultaneous connections per user and rejects the extra one with a distinct close code", async () => {
+  it("never holds more than 10 connections per user: the newest is accepted and the oldest is closed with 4008", async () => {
     const user = await createUser();
     const token = tokenFor(user);
 
@@ -94,10 +94,32 @@ describe("chat WebSocket hardening", () => {
     await settle();
     expect(sockets.every((s) => s.readyState === WebSocket.OPEN)).toBe(true);
 
-    const { closed } = connect(socketUrl(token));
-    expect(await closed).toBe(4008);
+    const oldestClosed = new Promise((resolve) => sockets[0].once("close", (code) => resolve(code)));
+    const newest = await open(socketUrl(token));
+    expect(await oldestClosed).toBe(4008);
+    await settle();
 
-    sockets.forEach((s) => s.terminate());
+    const all = [...sockets, newest];
+    expect(newest.readyState).toBe(WebSocket.OPEN);
+    expect(all.filter((s) => s.readyState === WebSocket.OPEN)).toHaveLength(10);
+
+    all.forEach((s) => s.terminate());
+  });
+
+  it("lets a genuine reconnect through when the user's slots are all held by stale sockets", async () => {
+    const user = await createUser();
+    const token = tokenFor(user);
+
+    const stale = [];
+    for (let i = 0; i < 10; i++) stale.push(await open(socketUrl(token)));
+    await settle();
+
+    const reconnect = await open(socketUrl(token));
+    await settle();
+    expect(reconnect.readyState).toBe(WebSocket.OPEN);
+
+    stale.forEach((s) => s.terminate());
+    reconnect.terminate();
   });
 
   it("frees a slot when a connection closes", async () => {
@@ -114,6 +136,7 @@ describe("chat WebSocket hardening", () => {
     const replacement = await open(socketUrl(token));
     await settle();
     expect(replacement.readyState).toBe(WebSocket.OPEN);
+    expect(sockets.slice(1).every((s) => s.readyState === WebSocket.OPEN)).toBe(true);
 
     sockets.slice(1).forEach((s) => s.terminate());
     replacement.terminate();
