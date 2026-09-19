@@ -2,6 +2,7 @@ const webpush = require("web-push");
 const PushSubscription = require("../models/PushSubscription");
 const PushPreferences = require("../models/PushPreferences");
 const Notification = require("../models/Notification");
+const { isAllowedPushEndpoint } = require("./pushEndpoint");
 
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(
@@ -90,7 +91,12 @@ async function deliverPushIfEligible(userId, notification) {
   if (isSuppressedByQuietHours(prefs.quietHours, notification)) return;
   if (await isThrottled(userId)) return;
 
-  const subscriptions = await PushSubscription.find({ user: userId });
+  const storedSubscriptions = await PushSubscription.find({ user: userId });
+  const rejected = storedSubscriptions.filter((sub) => !isAllowedPushEndpoint(sub.endpoint));
+  if (rejected.length) {
+    await PushSubscription.deleteMany({ _id: { $in: rejected.map((sub) => sub._id) } });
+  }
+  const subscriptions = storedSubscriptions.filter((sub) => !rejected.includes(sub));
   if (!subscriptions.length) return;
 
   const payload = JSON.stringify(buildPushPayload(notification));

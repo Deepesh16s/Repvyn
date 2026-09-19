@@ -1,8 +1,10 @@
 const mongoose = require("mongoose");
+const { NAME_MAX_LENGTH } = require("../constants/userLimits");
 const userSchema = new mongoose.Schema({
     name: {
         type: String,
-        required: true
+        required: true,
+        maxlength: NAME_MAX_LENGTH
     },
     email: {
         type: String,
@@ -69,4 +71,8 @@ const userSchema = new mongoose.Schema({
         default: null
     }
 }, { timestamps: true });
+userSchema.index(
+    { name: 1 },
+    { partialFilterExpression: { profileVisibility: "public", discoverableByName: true } }
+);
 module.exports = mongoose.model("User", userSchema);

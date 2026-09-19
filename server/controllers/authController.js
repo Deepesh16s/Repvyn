@@ -32,6 +32,8 @@ const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const Exercise = require("../models/Exercise");
 const defaultExercises = require("../data/defaultExercises");
 const sendEmail = require("../utils/sendEmail");
+const { NAME_MAX_LENGTH, EMAIL_MAX_LENGTH } = require("../constants/userLimits");
+const { isString, normalizeEmail, findUserByEmail } = require("../utils/userInput");
 const { uploadBufferToCloudinary, destroyCloudinaryAsset } = require("../utils/cloudinary");
 const {
   normalize: normalizeUsername,
@@ -75,13 +77,30 @@ exports.registerUser = async (req, res) => {
   try {
     const { name, email, password, username } = req.body;
 
-    if (!name || !name.trim() || !email || !email.trim() || !password || !username) {
+    if (
+      ![name, email, password, username].every(isString) ||
+      !name.trim() ||
+      !email.trim() ||
+      !password ||
+      !username
+    ) {
       return res.status(400).json({
         message: "Name, email, password, and username are required",
       });
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    if (name.trim().length > NAME_MAX_LENGTH) {
+      return res.status(400).json({
+        message: `Name must be ${NAME_MAX_LENGTH} characters or fewer`,
+      });
+    }
+
+    const normalizedEmail = normalizeEmail(email);
+
+    if (
+      normalizedEmail.length > EMAIL_MAX_LENGTH ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
+    ) {
       return res.status(400).json({
         message: "Please enter a valid email address",
       });
@@ -99,7 +118,7 @@ exports.registerUser = async (req, res) => {
       return res.status(400).json({ message: usernameFormatError });
     }
 
-    const existingUser = await User.findOne({ email });
+    const existingUser = await findUserByEmail(normalizedEmail);
 
     if (existingUser) {
       return res.status(400).json({
@@ -116,15 +135,17 @@ exports.registerUser = async (req, res) => {
     let user;
     try {
       user = await User.create({
-        name,
-        email,
+        name: name.trim(),
+        email: normalizedEmail,
         password: hashedPassword,
         username: normalizedUsername,
         usernameChosenByUser: true,
       });
     } catch (error) {
       if (error.code === 11000 || error.code === "E11000") {
-        return res.status(400).json({ message: "Username is already taken" });
+        return res.status(400).json({
+          message: error.keyPattern?.email ? "User already exists" : "Username is already taken",
+        });
       }
       throw error;
     }
@@ -153,7 +174,13 @@ exports.loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
+    if (!isString(email) || !isString(password) || !email.trim() || !password) {
+      return res.status(400).json({
+        message: "Email and password are required",
+      });
+    }
+
+    const user = await findUserByEmail(email);
 
     if (!user) {
       return res.status(400).json({
@@ -212,8 +239,14 @@ exports.updateProfile = async (req, res) => {
   try {
     const { name } = req.body;
 
-    if (!name || !name.trim()) {
+    if (!isString(name) || !name.trim()) {
       return res.status(400).json({ message: "Name is required" });
+    }
+
+    if (name.trim().length > NAME_MAX_LENGTH) {
+      return res.status(400).json({
+        message: `Name must be ${NAME_MAX_LENGTH} characters or fewer`,
+      });
     }
 
     const user = await User.findByIdAndUpdate(
@@ -279,7 +312,7 @@ exports.changePassword = async (req, res) => {
   try {
     const { oldPassword, newPassword } = req.body;
 
-    if (!oldPassword || !newPassword) {
+    if (!isString(oldPassword) || !isString(newPassword) || !oldPassword || !newPassword) {
       return res.status(400).json({
         message: "All fields are required",
       });
@@ -435,7 +468,7 @@ exports.checkUsernameAvailable = async (req, res) => {
 exports.updateUsername = async (req, res) => {
   try {
     const { username } = req.body;
-    if (!username) {
+    if (!isString(username) || !username) {
       return res.status(400).json({ message: "Username is required" });
     }
 
@@ -567,12 +600,13 @@ exports.googleLogin = async (req, res) => {
       return res.status(401).json({ message: "Google account email is not verified" });
     }
 
-    let user = await User.findOne({ email });
+    const normalizedEmail = normalizeEmail(email);
+    let user = await findUserByEmail(normalizedEmail);
 
     if (!user) {
       user = await User.create({
-        name,
-        email,
+        name: String(name || "").trim().slice(0, NAME_MAX_LENGTH) || normalizedEmail.split("@")[0],
+        email: normalizedEmail,
         googleId: sub,
         picture,
       });
@@ -613,7 +647,11 @@ exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
 
-    const user = await User.findOne({ email });
+    if (!isString(email) || !email.trim()) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    const user = await findUserByEmail(email);
 
     if (user) {
       const rawToken = crypto.randomBytes(32).toString("hex");
@@ -650,7 +688,7 @@ exports.resetPassword = async (req, res) => {
     const { token } = req.params;
     const { newPassword } = req.body;
 
-    if (!newPassword || newPassword.length < 6) {
+    if (!isString(newPassword) || newPassword.length < 6) {
       return res.status(400).json({ message: "Password must be at least 6 characters" });
     }
 

@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const compression = require("compression");
+const rejectOperatorKeys = require("./middleware/rejectOperatorKeys");
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -33,6 +34,7 @@ app.use(compression());
 
 app.use(cors(isProduction ? { origin: process.env.CLIENT_URL } : {}));
 app.use(express.json());
+app.use(rejectOperatorKeys);
 
 if (!isProduction && process.env.NODE_ENV !== "test") {
   app.use((req, res, next) => {

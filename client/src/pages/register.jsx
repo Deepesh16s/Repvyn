@@ -117,6 +117,7 @@ function Register() {
                 name="name"
                 autoComplete="name"
                 placeholder="Enter your full name"
+                maxLength={60}
                 value={name}
                 onChange={handleChange}
                 required

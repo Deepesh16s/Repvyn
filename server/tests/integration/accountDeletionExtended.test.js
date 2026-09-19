@@ -44,7 +44,7 @@ describe("DELETE /api/auth/account (extended cascade: badges, notifications, pus
     });
     await PushSubscription.create({
       user: userA._id,
-      endpoint: "https://push.example/ext-a",
+      endpoint: "https://fcm.googleapis.com/fcm/send/ext-a",
       keys: { p256dh: "p256dh-key", auth: "auth-key" },
     });
     await PushPreferences.create({ user: userA._id, pushEnabled: true });

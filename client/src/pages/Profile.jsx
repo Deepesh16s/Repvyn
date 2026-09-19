@@ -579,6 +579,7 @@ function Profile() {
                 id="name"
                 className="profile-input"
                 type="text"
+                maxLength={60}
                 value={name}
                 onChange={(e) =>
                   setName(

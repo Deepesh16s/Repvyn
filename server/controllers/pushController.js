@@ -1,11 +1,12 @@
 const PushSubscription = require("../models/PushSubscription");
 const PushPreferences = require("../models/PushPreferences");
 const Notification = require("../models/Notification");
+const { isAllowedPushEndpoint, isValidPushKey } = require("../utils/pushEndpoint");
 
 exports.registerSubscription = async (req, res) => {
   try {
     const { endpoint, keys } = req.body.subscription || req.body;
-    if (!endpoint || !keys?.p256dh || !keys?.auth) {
+    if (!isAllowedPushEndpoint(endpoint) || !isValidPushKey(keys?.p256dh) || !isValidPushKey(keys?.auth)) {
       return res.status(400).json({ message: "Invalid push subscription." });
     }
 
@@ -37,7 +38,7 @@ exports.registerSubscription = async (req, res) => {
 exports.removeSubscription = async (req, res) => {
   try {
     const { endpoint } = req.body;
-    if (!endpoint) {
+    if (typeof endpoint !== "string" || !endpoint) {
       return res.status(400).json({ message: "endpoint is required." });
     }
     await PushSubscription.deleteOne({ endpoint, user: req.user._id });

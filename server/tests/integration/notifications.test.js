@@ -227,7 +227,7 @@ describe("Push subscription / preferences", () => {
   it("registers a subscription and enables push preferences by default", async () => {
     const user = await createUser();
     const res = await authed(user)("post", "/api/push/subscriptions").send({
-      endpoint: "https://push.example/registration-test",
+      endpoint: "https://fcm.googleapis.com/fcm/send/registration-test",
       keys: { p256dh: "p256dh-key", auth: "auth-key" },
     });
     expect(res.status).toBe(201);
@@ -238,7 +238,7 @@ describe("Push subscription / preferences", () => {
 
   it("rejects a malformed subscription payload", async () => {
     const user = await createUser();
-    const res = await authed(user)("post", "/api/push/subscriptions").send({ endpoint: "https://push.example/x" });
+    const res = await authed(user)("post", "/api/push/subscriptions").send({ endpoint: "https://fcm.googleapis.com/fcm/send/x" });
     expect(res.status).toBe(400);
   });
 
@@ -247,15 +247,15 @@ describe("Push subscription / preferences", () => {
     const attacker = await createUser();
     await PushSubscription.create({
       user: owner._id,
-      endpoint: "https://push.example/owned",
+      endpoint: "https://fcm.googleapis.com/fcm/send/owned",
       keys: { p256dh: "p256dh-key", auth: "auth-key" },
     });
 
     const res = await authed(attacker)("delete", "/api/push/subscriptions").send({
-      endpoint: "https://push.example/owned",
+      endpoint: "https://fcm.googleapis.com/fcm/send/owned",
     });
     expect(res.status).toBe(200);
-    expect(await PushSubscription.countDocuments({ endpoint: "https://push.example/owned" })).toBe(1);
+    expect(await PushSubscription.countDocuments({ endpoint: "https://fcm.googleapis.com/fcm/send/owned" })).toBe(1);
   });
 
   it("updates quiet-hours preferences", async () => {
@@ -322,7 +322,7 @@ describe("deliverPushIfEligible gating (webpush call mocked, not real delivery)"
     await PushPreferences.create({ user: user._id, pushEnabled: false });
     await PushSubscription.create({
       user: user._id,
-      endpoint: "https://push.example/disabled",
+      endpoint: "https://fcm.googleapis.com/fcm/send/disabled",
       keys: { p256dh: "p256dh-key", auth: "auth-key" },
     });
 
@@ -342,7 +342,7 @@ describe("deliverPushIfEligible gating (webpush call mocked, not real delivery)"
     await PushPreferences.create({ user: user._id, pushEnabled: true });
     await PushSubscription.create({
       user: user._id,
-      endpoint: "https://push.example/ineligible",
+      endpoint: "https://fcm.googleapis.com/fcm/send/ineligible",
       keys: { p256dh: "p256dh-key", auth: "auth-key" },
     });
 
@@ -362,7 +362,7 @@ describe("deliverPushIfEligible gating (webpush call mocked, not real delivery)"
     await PushPreferences.create({ user: user._id, pushEnabled: true });
     await PushSubscription.create({
       user: user._id,
-      endpoint: "https://push.example/eligible",
+      endpoint: "https://fcm.googleapis.com/fcm/send/eligible",
       keys: { p256dh: "p256dh-key", auth: "auth-key" },
     });
     const notif = await Notification.create({
@@ -395,5 +395,60 @@ describe("deliverPushIfEligible gating (webpush call mocked, not real delivery)"
       icon: "Trophy",
     });
     expect(sendSpy).not.toHaveBeenCalled();
+  });
+
+  it("never sends to a stored subscription whose endpoint is not a real push service, and deletes it", async () => {
+    const user = await createUser();
+    await PushPreferences.create({ user: user._id, pushEnabled: true });
+    await PushSubscription.create({
+      user: user._id,
+      endpoint: "https://10.0.0.5:8443/internal",
+      keys: { p256dh: "p256dh-key", auth: "auth-key" },
+    });
+    const notif = await Notification.create({
+      user: user._id,
+      type: "personalRecord",
+      category: "progress",
+      priority: "high",
+      icon: "Trophy",
+      title: "New PR!",
+      dedupeKey: "push-purge-1",
+    });
+
+    await deliverPushIfEligible(user._id, notif);
+
+    expect(sendSpy).not.toHaveBeenCalled();
+    expect(await PushSubscription.countDocuments({ user: user._id })).toBe(0);
+  });
+
+  it("still delivers to a valid subscription while purging an invalid one", async () => {
+    const user = await createUser();
+    await PushPreferences.create({ user: user._id, pushEnabled: true });
+    await PushSubscription.create({
+      user: user._id,
+      endpoint: "https://attacker.example/collect",
+      keys: { p256dh: "p256dh-key", auth: "auth-key" },
+    });
+    await PushSubscription.create({
+      user: user._id,
+      endpoint: "https://fcm.googleapis.com/fcm/send/valid",
+      keys: { p256dh: "p256dh-key", auth: "auth-key" },
+    });
+    const notif = await Notification.create({
+      user: user._id,
+      type: "personalRecord",
+      category: "progress",
+      priority: "high",
+      icon: "Trophy",
+      title: "New PR!",
+      dedupeKey: "push-purge-2",
+    });
+
+    await deliverPushIfEligible(user._id, notif);
+
+    expect(sendSpy).toHaveBeenCalledTimes(1);
+    expect(sendSpy.mock.calls[0][0].endpoint).toBe("https://fcm.googleapis.com/fcm/send/valid");
+    const remaining = await PushSubscription.find({ user: user._id });
+    expect(remaining.map((s) => s.endpoint)).toEqual(["https://fcm.googleapis.com/fcm/send/valid"]);
   });
 });

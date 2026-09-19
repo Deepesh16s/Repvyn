@@ -1,3 +1,5 @@
+process.env.AUTH_RATE_LIMIT_MAX = "1000";
+
 const request = require("supertest");
 const { OAuth2Client } = require("google-auth-library");
 const app = require("../../app");
@@ -89,6 +91,25 @@ describe("POST /api/auth/google", () => {
     const stored = await User.findOne({ email: "newgoogleuser@test.local" });
     expect(stored).not.toBeNull();
     expect(stored.username).toBeTruthy();
+  });
+
+  it("stores a lowercased email and truncates an overlong Google display name instead of failing", async () => {
+    verifyIdTokenSpy.mockResolvedValueOnce(
+      mockTicket({ email: "Mixed.Case.Google@Test.local", name: "G".repeat(100) })
+    );
+    const res = await request(app).post("/api/auth/google").send({ token: "valid-token" });
+    expect(res.status).toBe(200);
+    const stored = await User.findOne({ email: "mixed.case.google@test.local" });
+    expect(stored).not.toBeNull();
+    expect(stored.name).toHaveLength(60);
+  });
+
+  it("signs a returning user in to the same account when Google reports a different email case", async () => {
+    await createUser({ email: "returning.google@test.local" });
+    verifyIdTokenSpy.mockResolvedValueOnce(mockTicket({ email: "Returning.Google@Test.local" }));
+    const res = await request(app).post("/api/auth/google").send({ token: "valid-token" });
+    expect(res.status).toBe(200);
+    expect(await User.countDocuments({})).toBe(1);
   });
 
   it("returns 500 on a genuine unexpected server failure after successful verification", async () => {
