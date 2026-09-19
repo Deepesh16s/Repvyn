@@ -19,9 +19,11 @@ function UserSearch() {
   useEffect(() => {
     const trimmed = query.trim();
     if (trimmed.length < MIN_QUERY_LENGTH) {
+      requestId.current += 1;
       setResults([]);
       setHasSearched(false);
       setError(false);
+      setSearching(false);
       return;
     }
     const id = ++requestId.current;
