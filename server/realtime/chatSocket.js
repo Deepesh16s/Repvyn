@@ -2,6 +2,11 @@ const { WebSocketServer } = require("ws");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
+const MAX_PAYLOAD_BYTES = 1024;
+const MAX_CONNECTIONS_PER_USER = 10;
+const CLOSE_INVALID_TOKEN = 4001;
+const CLOSE_TOO_MANY_CONNECTIONS = 4008;
+
 const connections = new Map();
 
 function registerConnection(userId, ws) {
@@ -28,31 +33,45 @@ function notifyUser(userId, event) {
 }
 
 function attach(httpServer) {
-  const wss = new WebSocketServer({ server: httpServer, path: "/ws/chat" });
+  const wss = new WebSocketServer({
+    server: httpServer,
+    path: "/ws/chat",
+    maxPayload: MAX_PAYLOAD_BYTES,
+  });
 
   wss.on("connection", async (ws, req) => {
+    let registeredUserId = null;
+    const cleanup = () => {
+      if (registeredUserId) unregisterConnection(registeredUserId, ws);
+    };
+    ws.on("close", cleanup);
+    ws.on("error", cleanup);
+
     try {
       const url = new URL(req.url, "http://localhost");
       const token = url.searchParams.get("token");
       if (!token) {
-        ws.close(4001, "Missing token");
+        ws.close(CLOSE_INVALID_TOKEN, "Missing token");
         return;
       }
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const user = await User.findById(decoded.id).select("_id");
       if (!user) {
-        ws.close(4001, "Invalid token");
+        ws.close(CLOSE_INVALID_TOKEN, "Invalid token");
         return;
       }
 
       const userId = String(user._id);
-      registerConnection(userId, ws);
+      if ((connections.get(userId)?.size || 0) >= MAX_CONNECTIONS_PER_USER) {
+        ws.close(CLOSE_TOO_MANY_CONNECTIONS, "Too many connections");
+        return;
+      }
 
-      ws.on("close", () => unregisterConnection(userId, ws));
-      ws.on("error", () => unregisterConnection(userId, ws));
+      registeredUserId = userId;
+      registerConnection(userId, ws);
     } catch {
-      ws.close(4001, "Invalid token");
+      ws.close(CLOSE_INVALID_TOKEN, "Invalid token");
     }
   });
 

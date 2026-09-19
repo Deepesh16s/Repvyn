@@ -1,5 +1,6 @@
 const EVENT_NAME = "repvyn:chat-event";
 const MAX_BACKOFF_MS = 30000;
+const CLOSE_TOO_MANY_CONNECTIONS = 4008;
 
 let socket = null;
 let intentionalClose = false;
@@ -43,8 +44,9 @@ export function connect() {
     }
   };
 
-  socket.onclose = () => {
+  socket.onclose = (event) => {
     socket = null;
+    if (event.code === CLOSE_TOO_MANY_CONNECTIONS) return;
     scheduleReconnect();
   };
 
