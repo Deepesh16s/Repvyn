@@ -1,6 +1,7 @@
 const request = require("supertest");
 const app = require("../../app");
 const Notification = require("../../models/Notification");
+const Activity = require("../../models/Activity");
 const PushSubscription = require("../../models/PushSubscription");
 const PushPreferences = require("../../models/PushPreferences");
 const { createNotificationIfNew } = require("../../utils/notificationService");
@@ -220,6 +221,62 @@ describe("POST /api/notifications/generate (client-submitted candidates)", () =>
     expect(res.status).toBe(201);
     const stored = await Notification.findOne({ dedupeKey: "gen-owner" });
     expect(String(stored.user)).toBe(String(user._id));
+  });
+
+  it("rejects server-owned types so a client cannot fake a PR into followers' Activity Feeds", async () => {
+    const user = await createUser();
+    const res = await authed(user)("post", "/api/notifications/generate").send({
+      candidates: [
+        { type: "personalRecord", category: "progress", icon: "Trophy", title: "New PR: 1000kg", dedupeKey: "fake-pr" },
+        { type: "streakMilestone", category: "progress", icon: "Flame", title: "999 day streak", dedupeKey: "fake-streak" },
+        { type: "newFollower", category: "progress", icon: "UserPlus", title: "Spoofed", dedupeKey: "fake-social" },
+      ],
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.created).toHaveLength(0);
+    expect(await Notification.countDocuments({ user: user._id })).toBe(0);
+    expect(await Activity.countDocuments({ user: user._id })).toBe(0);
+  });
+
+  it("clips oversized text and drops unsafe navigation targets", async () => {
+    const user = await createUser();
+    await authed(user)("post", "/api/notifications/generate").send({
+      candidates: [
+        {
+          type: "workoutOverdue",
+          category: "reminders",
+          icon: "Bell",
+          title: "x".repeat(5000),
+          subtitle: "y".repeat(5000),
+          navigationTarget: "https://evil.example/phish",
+          dedupeKey: "gen-clip",
+        },
+        {
+          type: "workoutOverdue",
+          category: "reminders",
+          icon: "Bell",
+          title: "Protocol-relative",
+          navigationTarget: "//evil.example",
+          dedupeKey: "gen-proto",
+        },
+        {
+          type: "workoutOverdue",
+          category: "reminders",
+          icon: "Bell",
+          title: "In-app",
+          navigationTarget: "/calendar?date=2026-01-01",
+          dedupeKey: "gen-inapp",
+        },
+      ],
+    });
+    const clipped = await Notification.findOne({ dedupeKey: "gen-clip" });
+    expect(clipped.title.length).toBe(200);
+    expect(clipped.subtitle.length).toBe(500);
+    expect(clipped.navigationTarget).toBeNull();
+    expect((await Notification.findOne({ dedupeKey: "gen-proto" })).navigationTarget).toBeNull();
+    expect((await Notification.findOne({ dedupeKey: "gen-inapp" })).navigationTarget).toBe(
+      "/calendar?date=2026-01-01"
+    );
   });
 });
 
