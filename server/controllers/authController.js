@@ -25,7 +25,6 @@ const HealthSample = require("../models/HealthSample");
 const HealthSleepSession = require("../models/HealthSleepSession");
 const DailySteps = require("../models/DailySteps");
 const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const { OAuth2Client } = require("google-auth-library");
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -34,6 +33,8 @@ const defaultExercises = require("../data/defaultExercises");
 const sendEmail = require("../utils/sendEmail");
 const { NAME_MAX_LENGTH, EMAIL_MAX_LENGTH } = require("../constants/userLimits");
 const { isString, normalizeEmail, findUserByEmail } = require("../utils/userInput");
+const { signAuthToken } = require("../utils/authToken");
+const { disconnectUser } = require("../realtime/chatSocket");
 const { uploadBufferToCloudinary, destroyCloudinaryAsset } = require("../utils/cloudinary");
 const {
   normalize: normalizeUsername,
@@ -140,6 +141,7 @@ exports.registerUser = async (req, res) => {
         password: hashedPassword,
         username: normalizedUsername,
         usernameChosenByUser: true,
+        emailVerified: false,
       });
     } catch (error) {
       if (error.code === 11000 || error.code === "E11000") {
@@ -206,11 +208,7 @@ exports.loginUser = async (req, res) => {
       await assignGeneratedUsername(user);
     }
 
-    const token = jwt.sign(
-      { id: user._id },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    const token = signAuthToken(user);
 
     res.status(200).json({
       message: "Login Successful",
@@ -232,7 +230,12 @@ exports.loginUser = async (req, res) => {
 };
 
 exports.getMe = async (req, res) => {
-  res.status(200).json(req.user);
+  const account = await User.findById(req.user._id).select("password");
+  res.status(200).json({
+    ...req.user.toJSON(),
+    hasPassword: !!account?.password,
+    emailVerified: req.user.emailVerified !== false,
+  });
 };
 
 exports.updateProfile = async (req, res) => {
@@ -332,6 +335,12 @@ exports.changePassword = async (req, res) => {
       });
     }
 
+    if (!user.password) {
+      return res.status(400).json({
+        message: "This account signs in with Google and has no password. Use Forgot password to create one.",
+      });
+    }
+
     const isMatch = await bcrypt.compare(oldPassword, user.password);
 
     if (!isMatch) {
@@ -343,11 +352,16 @@ exports.changePassword = async (req, res) => {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     user.password = hashedPassword;
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
 
     await user.save();
+    disconnectUser(user._id);
 
     res.status(200).json({
       message: "Password changed successfully",
+      token: signAuthToken(user),
     });
   } catch (error) {
     console.log(error);
@@ -358,8 +372,57 @@ exports.changePassword = async (req, res) => {
   }
 };
 
+const FRESH_GOOGLE_CREDENTIAL_SECONDS = 300;
+
+async function confirmAccountOwnership(userId, { password, googleToken }) {
+  const account = await User.findById(userId).select("password email googleId");
+  if (!account) return { status: 401, message: "Not authorized" };
+
+  if (account.password) {
+    if (!isString(password) || !password) {
+      return { status: 400, message: "Enter your password to delete your account" };
+    }
+    if (!(await bcrypt.compare(password, account.password))) {
+      return { status: 400, message: "Password is incorrect" };
+    }
+    return null;
+  }
+
+  if (!isString(googleToken) || !googleToken) {
+    return { status: 400, message: "Confirm with Google to delete your account" };
+  }
+
+  let payload;
+  try {
+    const ticket = await client.verifyIdToken({
+      idToken: googleToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    payload = ticket.getPayload();
+  } catch {
+    return { status: 400, message: "Invalid or expired Google credential" };
+  }
+
+  const isFresh = !!payload && Date.now() / 1000 - payload.iat <= FRESH_GOOGLE_CREDENTIAL_SECONDS;
+  const isSameAccount =
+    !!payload &&
+    ((account.googleId && payload.sub === account.googleId) ||
+      (payload.email_verified && normalizeEmail(payload.email) === normalizeEmail(account.email)));
+
+  if (!isFresh || !isSameAccount) {
+    return { status: 400, message: "Confirm with Google again to delete your account" };
+  }
+  return null;
+}
+
 exports.deleteAccount = async (req, res) => {
   const userId = req.user._id;
+
+  const ownershipError = await confirmAccountOwnership(userId, req.body);
+  if (ownershipError) {
+    return res.status(ownershipError.status).json({ message: ownershipError.message });
+  }
+
   const session = await mongoose.startSession();
 
   let cloudinaryAssetIds = [];
@@ -609,20 +672,27 @@ exports.googleLogin = async (req, res) => {
         email: normalizedEmail,
         googleId: sub,
         picture,
+        emailVerified: true,
       });
 
       await seedDefaultExercisesForUser(user._id);
+    } else if (user.emailVerified === false) {
+      user.emailVerified = true;
+      if (!user.googleId) user.googleId = sub;
+      const hadPassword = !!user.password;
+      if (hadPassword) {
+        user.password = null;
+        user.tokenVersion = (user.tokenVersion || 0) + 1;
+      }
+      await user.save();
+      if (hadPassword) disconnectUser(user._id);
     }
 
     if (!user.username) {
       await assignGeneratedUsername(user);
     }
 
-    const token = jwt.sign(
-      { id: user._id },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    const token = signAuthToken(user);
 
     res.status(200).json({
       token,
@@ -704,10 +774,13 @@ exports.resetPassword = async (req, res) => {
     }
 
     user.password = await bcrypt.hash(newPassword, 10);
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+    user.emailVerified = true;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
 
     await user.save();
+    disconnectUser(user._id);
 
     res.status(200).json({ message: "Password reset successfully" });
   } catch (error) {

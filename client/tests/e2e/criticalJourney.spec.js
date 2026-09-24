@@ -128,6 +128,7 @@ test("account deletion: removes the account and redirects to landing", async ({ 
   await restoreSession(page);
   await page.goto("/profile");
   await page.getByRole("button", { name: "Delete Account" }).click();
+  await page.getByLabel("Enter your password to confirm").fill(user.password);
   await page.getByRole("button", { name: "Yes, Delete" }).click();
 
   await expect(page).toHaveURL("/", { timeout: 10000 });

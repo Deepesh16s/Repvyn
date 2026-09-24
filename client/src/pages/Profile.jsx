@@ -12,8 +12,11 @@ import {
   Camera,
 } from "lucide-react";
 
+import { GoogleLogin } from "@react-oauth/google";
+
 import "./profile.css";
 import api from "../services/api";
+import * as chatSocket from "../services/chatSocket";
 import AvatarCropModal from "../components/AvatarCropModal";
 import Avatar from "../components/Avatar";
 
@@ -59,6 +62,9 @@ function Profile() {
 
   const [deleting, setDeleting] =
     useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteMsg, setDeleteMsg] = useState("");
+  const [hasPassword, setHasPassword] = useState(true);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -71,6 +77,7 @@ function Profile() {
         setProfileVisibility(res.data.profileVisibility || "private");
         setShowTrainingActivity(!!res.data.showTrainingActivity);
         setDiscoverableByName(!!res.data.discoverableByName);
+        setHasPassword(res.data.hasPassword !== false);
       } catch (error) {
         console.log(error);
       } finally {
@@ -292,13 +299,18 @@ function Profile() {
       setSavingPassword(true);
 
       try {
-        await api.put(
+        const res = await api.put(
           "/auth/change-password",
           {
             oldPassword,
             newPassword,
           }
         );
+
+        if (res.data.token) {
+          localStorage.setItem("token", res.data.token);
+          chatSocket.connect();
+        }
 
         setPasswordMsg(
           "Password updated successfully."
@@ -318,13 +330,12 @@ function Profile() {
     };
 
   const handleDeleteAccount =
-    async () => {
+    async (credentials = {}) => {
       setDeleting(true);
+      setDeleteMsg("");
 
       try {
-        await api.delete(
-          "/auth/account"
-        );
+        await api.delete("/auth/account", { data: credentials });
 
         localStorage.removeItem(
           "token"
@@ -336,7 +347,7 @@ function Profile() {
 
         navigate("/");
       } catch (error) {
-        console.log(error);
+        setDeleteMsg(error.response?.data?.message || "Could not delete your account.");
         setDeleting(false);
       }
     };
@@ -750,37 +761,71 @@ function Profile() {
                 Delete Account
               </button>
             ) : (
-              <div className="profile-confirm-row">
-                <button
-                  className="profile-btn profile-btn-danger"
-                  type="button"
-                  onClick={
-                    handleDeleteAccount
-                  }
-                  disabled={
-                    deleting
-                  }
-                >
-                  {deleting
-                    ? "Deleting..."
-                    : "Yes, Delete"}
-                </button>
+              <>
+                {hasPassword ? (
+                  <>
+                    <label className="profile-label" htmlFor="delete-password">
+                      Enter your password to confirm
+                    </label>
+                    <input
+                      id="delete-password"
+                      className="profile-input"
+                      type="password"
+                      autoComplete="current-password"
+                      value={deletePassword}
+                      onChange={(e) => setDeletePassword(e.target.value)}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <p className="profile-danger-text">
+                      Confirm with Google to delete your account.
+                    </p>
+                    <GoogleLogin
+                      onSuccess={(credentialResponse) =>
+                        handleDeleteAccount({ googleToken: credentialResponse.credential })
+                      }
+                      onError={() => setDeleteMsg("Google confirmation failed. Try again.")}
+                    />
+                  </>
+                )}
 
-                <button
-                  className="profile-btn profile-btn-ghost"
-                  type="button"
-                  onClick={() =>
-                    setShowDeleteConfirm(
-                      false
-                    )
-                  }
-                  disabled={
-                    deleting
-                  }
-                >
-                  Cancel
-                </button>
-              </div>
+                <div className="profile-confirm-row">
+                  {hasPassword && (
+                    <button
+                      className="profile-btn profile-btn-danger"
+                      type="button"
+                      onClick={() => handleDeleteAccount({ password: deletePassword })}
+                      disabled={deleting || !deletePassword}
+                    >
+                      {deleting
+                        ? "Deleting..."
+                        : "Yes, Delete"}
+                    </button>
+                  )}
+
+                  <button
+                    className="profile-btn profile-btn-ghost"
+                    type="button"
+                    onClick={() => {
+                      setShowDeleteConfirm(false);
+                      setDeletePassword("");
+                      setDeleteMsg("");
+                    }}
+                    disabled={
+                      deleting
+                    }
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+                {deleteMsg && (
+                  <p className="profile-msg" role="alert">
+                    {deleteMsg}
+                  </p>
+                )}
+              </>
             )}
           </section>
         </div>

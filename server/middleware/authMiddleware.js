@@ -1,16 +1,19 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const { isTokenCurrent } = require("../utils/authToken");
+
+const SAFE_USER_FIELDS = "-password -resetPasswordToken -resetPasswordExpires";
+
+function readBearerToken(req) {
+  if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
+    return req.headers.authorization.split(" ")[1];
+  }
+  return undefined;
+}
 
 exports.protect = async (req, res, next) => {
   try {
-    let token;
-
-    if (
-      req.headers.authorization &&
-      req.headers.authorization.startsWith("Bearer")
-    ) {
-      token = req.headers.authorization.split(" ")[1];
-    }
+    const token = readBearerToken(req);
 
     if (!token) {
       return res.status(401).json({
@@ -18,21 +21,16 @@ exports.protect = async (req, res, next) => {
       });
     }
 
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET
-    );
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id).select(SAFE_USER_FIELDS);
 
-    req.user = await User.findById(decoded.id).select(
-      "-password -resetPasswordToken -resetPasswordExpires"
-    );
-
-    if (!req.user) {
+    if (!user || !isTokenCurrent(decoded, user)) {
       return res.status(401).json({
         message: "Not authorized",
       });
     }
 
+    req.user = user;
     next();
   } catch (error) {
     if (error.name !== "JsonWebTokenError" && error.name !== "TokenExpiredError") {
@@ -46,22 +44,15 @@ exports.protect = async (req, res, next) => {
 
 exports.optionalAuth = async (req, res, next) => {
   try {
-    let token;
-
-    if (
-      req.headers.authorization &&
-      req.headers.authorization.startsWith("Bearer")
-    ) {
-      token = req.headers.authorization.split(" ")[1];
-    }
+    const token = readBearerToken(req);
 
     if (token) {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      req.user = await User.findById(decoded.id).select(
-        "-password -resetPasswordToken -resetPasswordExpires"
-      );
+      const user = await User.findById(decoded.id).select(SAFE_USER_FIELDS);
+      if (user && isTokenCurrent(decoded, user)) req.user = user;
     }
-  } catch (error) {
+  } catch {
+    req.user = undefined;
   }
 
   next();

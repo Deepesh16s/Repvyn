@@ -5,7 +5,7 @@ const { OAuth2Client } = require("google-auth-library");
 const app = require("../../app");
 const User = require("../../models/User");
 const { connectTestDB, clearTestDB, disconnectTestDB } = require("../helpers/db");
-const { createUser } = require("../helpers/factories");
+const { createUser, tokenFor } = require("../helpers/factories");
 
 let verifyIdTokenSpy;
 
@@ -127,5 +127,69 @@ describe("POST /api/auth/google", () => {
     const res = await request(app).post("/api/auth/google").send({ token: "valid-token" });
     expect(res.status).toBe(500);
     findOneSpy.mockRestore();
+  });
+});
+
+describe("POST /api/auth/google on an existing password account", () => {
+  const withAuth = (token) => ({ Authorization: `Bearer ${token}` });
+
+  it("hands an unverified account to the Google owner: verifies it, clears the password, and revokes old sessions", async () => {
+    const squatter = await createUser({ email: "googleuser@test.local", emailVerified: false });
+    const squatterToken = tokenFor(squatter);
+    expect((await request(app).get("/api/auth/me").set(withAuth(squatterToken))).status).toBe(200);
+
+    verifyIdTokenSpy.mockResolvedValueOnce(mockTicket());
+    const res = await request(app).post("/api/auth/google").send({ token: "valid-token" });
+    expect(res.status).toBe(200);
+
+    const stored = await User.findById(squatter._id);
+    expect(stored.emailVerified).toBe(true);
+    expect(stored.password).toBeNull();
+    expect(stored.googleId).toBe("google-sub-123");
+    expect(stored.tokenVersion).toBe(1);
+
+    expect((await request(app).get("/api/auth/me").set(withAuth(squatterToken))).status).toBe(401);
+    expect((await request(app).get("/api/auth/me").set(withAuth(res.body.token))).status).toBe(200);
+
+    const passwordLogin = await request(app)
+      .post("/api/auth/login")
+      .send({ email: "googleuser@test.local", password: "Test1234!" });
+    expect(passwordLogin.status).toBe(400);
+  });
+
+  it("leaves a pre-existing (legacy) account's password and sessions alone", async () => {
+    const legacy = await createUser({ email: "googleuser@test.local" });
+    const legacyToken = tokenFor(legacy);
+
+    verifyIdTokenSpy.mockResolvedValueOnce(mockTicket());
+    const res = await request(app).post("/api/auth/google").send({ token: "valid-token" });
+    expect(res.status).toBe(200);
+
+    const stored = await User.findById(legacy._id);
+    expect(stored.password).toBeTruthy();
+    expect(stored.tokenVersion).toBe(0);
+    expect((await request(app).get("/api/auth/me").set(withAuth(legacyToken))).status).toBe(200);
+  });
+
+  it("marks accounts created through Google as verified", async () => {
+    verifyIdTokenSpy.mockResolvedValueOnce(mockTicket({ email: "brandnew.google@test.local" }));
+    const res = await request(app).post("/api/auth/google").send({ token: "valid-token" });
+    expect(res.status).toBe(200);
+    const stored = await User.findOne({ email: "brandnew.google@test.local" });
+    expect(stored.emailVerified).toBe(true);
+  });
+
+  it("does not touch a Google-only unverified account that has no password to clear", async () => {
+    const existing = await createUser({
+      email: "googleuser@test.local",
+      password: null,
+      emailVerified: false,
+    });
+    verifyIdTokenSpy.mockResolvedValueOnce(mockTicket());
+    const res = await request(app).post("/api/auth/google").send({ token: "valid-token" });
+    expect(res.status).toBe(200);
+    const stored = await User.findById(existing._id);
+    expect(stored.emailVerified).toBe(true);
+    expect(stored.tokenVersion).toBe(0);
   });
 });

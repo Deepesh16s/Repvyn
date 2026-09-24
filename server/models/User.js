@@ -47,6 +47,14 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    tokenVersion: {
+        type: Number,
+        default: 0
+    },
+    emailVerified: {
+        type: Boolean,
+        default: undefined
+    },
     premiumTier: {
         type: String,
         enum: ["free", "premium"],
@@ -69,6 +77,15 @@ const userSchema = new mongoose.Schema({
         default: null
     }
 }, { timestamps: true });
+userSchema.set("toJSON", {
+    transform: (doc, ret) => {
+        delete ret.password;
+        delete ret.resetPasswordToken;
+        delete ret.resetPasswordExpires;
+        delete ret.tokenVersion;
+        return ret;
+    }
+});
 userSchema.index(
     { name: 1 },
     { partialFilterExpression: { profileVisibility: "public", discoverableByName: true } }

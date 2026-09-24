@@ -1,5 +1,6 @@
 const EVENT_NAME = "repvyn:chat-event";
 const MAX_BACKOFF_MS = 30000;
+const CLOSE_INVALID_TOKEN = 4001;
 const CLOSE_TOO_MANY_CONNECTIONS = 4008;
 
 let socket = null;
@@ -29,13 +30,14 @@ export function connect() {
   if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
 
   intentionalClose = false;
-  socket = new WebSocket(getWsUrl());
+  const current = new WebSocket(getWsUrl());
+  socket = current;
 
-  socket.onopen = () => {
+  current.onopen = () => {
     backoffMs = 1000;
   };
 
-  socket.onmessage = (event) => {
+  current.onmessage = (event) => {
     try {
       const payload = JSON.parse(event.data);
       window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: payload }));
@@ -44,13 +46,13 @@ export function connect() {
     }
   };
 
-  socket.onclose = (event) => {
-    socket = null;
-    if (event.code === CLOSE_TOO_MANY_CONNECTIONS) return;
+  current.onclose = (event) => {
+    if (socket === current) socket = null;
+    if (event.code === CLOSE_TOO_MANY_CONNECTIONS || event.code === CLOSE_INVALID_TOKEN) return;
     scheduleReconnect();
   };
 
-  socket.onerror = () => {
+  current.onerror = () => {
   };
 }
 

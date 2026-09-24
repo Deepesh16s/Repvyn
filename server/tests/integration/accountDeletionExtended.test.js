@@ -87,7 +87,10 @@ describe("DELETE /api/auth/account (extended cascade: badges, notifications, pus
 
     await Activity.create({ user: userA._id, type: "physiquePost", title: "shared a physique update", refId: ownPost._id });
 
-    const res = await request(app).delete("/api/auth/account").set("Authorization", `Bearer ${tokenFor(userA)}`);
+    const res = await request(app)
+      .delete("/api/auth/account")
+      .set("Authorization", `Bearer ${tokenFor(userA)}`)
+      .send({ password: "Test1234!" });
     expect(res.status).toBe(200);
 
     expect(await User.findById(userA._id)).toBeNull();
@@ -132,7 +135,10 @@ describe("DELETE /api/auth/account (extended cascade: badges, notifications, pus
 
   it("does not destroy any Cloudinary asset when the deleted user had none", async () => {
     const user = await createUser({ email: "no-assets@test.local" });
-    const res = await request(app).delete("/api/auth/account").set("Authorization", `Bearer ${tokenFor(user)}`);
+    const res = await request(app)
+      .delete("/api/auth/account")
+      .set("Authorization", `Bearer ${tokenFor(user)}`)
+      .send({ password: "Test1234!" });
     expect(res.status).toBe(200);
     expect(destroySpy).not.toHaveBeenCalled();
   });

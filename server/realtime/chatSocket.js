@@ -1,11 +1,14 @@
 const { WebSocketServer } = require("ws");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const { isTokenCurrent } = require("../utils/authToken");
 
 const MAX_PAYLOAD_BYTES = 1024;
 const MAX_CONNECTIONS_PER_USER = 10;
 const CLOSE_INVALID_TOKEN = 4001;
 const CLOSE_TOO_MANY_CONNECTIONS = 4008;
+const CLOSE_SERVER_ERROR = 1011;
+const AUTH_ERROR_NAMES = new Set(["JsonWebTokenError", "TokenExpiredError", "NotBeforeError"]);
 
 const connections = new Map();
 
@@ -21,6 +24,14 @@ function unregisterConnection(userId, ws) {
   if (!set) return;
   set.delete(ws);
   if (set.size === 0) connections.delete(key);
+}
+
+function disconnectUser(userId) {
+  const key = String(userId);
+  const set = connections.get(key);
+  if (!set) return;
+  connections.delete(key);
+  for (const ws of set) ws.close(CLOSE_INVALID_TOKEN, "Session ended");
 }
 
 function notifyUser(userId, event) {
@@ -56,8 +67,8 @@ function attach(httpServer) {
       }
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findById(decoded.id).select("_id");
-      if (!user) {
+      const user = await User.findById(decoded.id).select("_id tokenVersion");
+      if (!user || !isTokenCurrent(decoded, user)) {
         ws.close(CLOSE_INVALID_TOKEN, "Invalid token");
         return;
       }
@@ -72,12 +83,16 @@ function attach(httpServer) {
 
       registeredUserId = userId;
       registerConnection(userId, ws);
-    } catch {
-      ws.close(CLOSE_INVALID_TOKEN, "Invalid token");
+    } catch (error) {
+      if (AUTH_ERROR_NAMES.has(error.name)) {
+        ws.close(CLOSE_INVALID_TOKEN, "Invalid token");
+      } else {
+        ws.close(CLOSE_SERVER_ERROR, "Server error");
+      }
     }
   });
 
   return wss;
 }
 
-module.exports = { attach, notifyUser };
+module.exports = { attach, notifyUser, disconnectUser };

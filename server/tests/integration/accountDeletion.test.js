@@ -55,7 +55,8 @@ describe("DELETE /api/auth/account", () => {
 
     const res = await request(app)
       .delete("/api/auth/account")
-      .set("Authorization", `Bearer ${tokenFor(userA)}`);
+      .set("Authorization", `Bearer ${tokenFor(userA)}`)
+      .send({ password: "Test1234!" });
     expect(res.status).toBe(200);
 
     expect(await User.findById(userA._id)).toBeNull();

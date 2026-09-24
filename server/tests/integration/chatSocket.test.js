@@ -1,4 +1,5 @@
 const http = require("http");
+const request = require("supertest");
 const WebSocket = require("ws");
 const app = require("../../app");
 const { attach } = require("../../realtime/chatSocket");
@@ -154,5 +155,55 @@ describe("chat WebSocket hardening", () => {
 
     sockets.forEach((s) => s.terminate());
     other.terminate();
+  });
+});
+
+describe("chat WebSocket session revocation", () => {
+  it("refuses a token whose version no longer matches the account", async () => {
+    const user = await createUser({ tokenVersion: 1 });
+    const { closed } = connect(socketUrl(tokenFor(user)));
+    expect(await closed).toBe(4001);
+  });
+
+  it("closes a user's open sockets when their password changes, and accepts the new token", async () => {
+    const user = await createUser();
+    const oldToken = tokenFor(user);
+    const ws = await open(socketUrl(oldToken));
+    await settle();
+    const closed = new Promise((resolve) => ws.once("close", (code) => resolve(code)));
+
+    const res = await request(app)
+      .put("/api/auth/change-password")
+      .set("Authorization", `Bearer ${oldToken}`)
+      .send({ oldPassword: "Test1234!", newPassword: "NewPassw0rd!" });
+    expect(res.status).toBe(200);
+    expect(await closed).toBe(4001);
+
+    const reconnected = await open(socketUrl(res.body.token));
+    await settle();
+    expect(reconnected.readyState).toBe(WebSocket.OPEN);
+    reconnected.terminate();
+
+    const { closed: staleClosed } = connect(socketUrl(oldToken));
+    expect(await staleClosed).toBe(4001);
+  });
+});
+
+describe("chat WebSocket failure codes", () => {
+  it("uses a server-error close code, not the invalid-token code, when the account lookup fails", async () => {
+    const User = require("../../models/User");
+    const user = await createUser();
+    const token = tokenFor(user);
+    const spy = vi.spyOn(User, "findById").mockImplementationOnce(() => {
+      throw new Error("simulated database outage");
+    });
+    const { closed } = connect(socketUrl(token));
+    expect(await closed).toBe(1011);
+    spy.mockRestore();
+
+    const recovered = await open(socketUrl(token));
+    await settle();
+    expect(recovered.readyState).toBe(WebSocket.OPEN);
+    recovered.terminate();
   });
 });
