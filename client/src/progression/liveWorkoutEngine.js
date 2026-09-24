@@ -1,5 +1,6 @@
 import { bestSet, estimate1RM, suggestedLoadIncrement } from "../utils/strengthUtils";
-import { groupWorkoutsIntoSessions, getSessionStats, computeCurrentStreak } from "../utils/workoutUtils";
+import { groupWorkoutsIntoSessions, getSessionStats } from "../utils/workoutUtils";
+import { computeRestAwareStreak, computeLongestRestAwareStreak, trainedDayKeys } from "../utils/activityStates";
 
 export function strengthWorkoutsForExercise(historicalWorkouts, exerciseId) {
   if (!exerciseId || !historicalWorkouts?.length) return [];
@@ -161,31 +162,6 @@ export function isFastestSession(historicalWorkouts, durationMinutes, setCount) 
   return durationMinutes < Math.min(...comparable.map(({ session }) => session.sessionDuration));
 }
 
-export function getLongestStreakEver(workouts) {
-  if (!workouts?.length) return 0;
-
-  const dateStrings = new Set(
-    workouts.map((w) => {
-      const d = new Date(w.date || w.createdAt);
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    })
-  );
-
-  const sortedDates = [...dateStrings].map((s) => new Date(s)).sort((a, b) => a - b);
-
-  let longest = 0;
-  let current = 0;
-  let prevDate = null;
-
-  sortedDates.forEach((date) => {
-    current = prevDate && date - prevDate === 86400000 ? current + 1 : 1;
-    longest = Math.max(longest, current);
-    prevDate = date;
-  });
-
-  return longest;
-}
-
 export function getSessionBadges(historicalWorkouts, { durationMinutes, setCount }) {
   const badges = [];
 
@@ -193,8 +169,9 @@ export function getSessionBadges(historicalWorkouts, { durationMinutes, setCount
     badges.push({ key: "fastestSession", label: "Fastest Session" });
   }
 
-  const currentStreak = computeCurrentStreak(historicalWorkouts);
-  const priorLongestStreak = getLongestStreakEver(historicalWorkouts);
+  const trainedKeys = trainedDayKeys(historicalWorkouts);
+  const currentStreak = computeRestAwareStreak(trainedKeys);
+  const priorLongestStreak = computeLongestRestAwareStreak(trainedKeys);
   if (currentStreak > 0 && currentStreak >= priorLongestStreak) {
     badges.push({ key: "longestStreak", label: `Longest Streak · Day ${currentStreak}` });
   }

@@ -10,6 +10,7 @@ const {
   filterSince,
   sumVolume,
 } = require("../utils/goalMetrics");
+const { parseTzOffset } = require("../utils/restAwareStreak");
 
 const totalSetsCount = (w) => (w.workoutSets || []).length;
 
@@ -85,8 +86,10 @@ exports.getPersonalRecords = async (req, res) => {
 
 exports.getCurrentStreak = async (req, res) => {
   try {
-    const workouts = await Workout.find({ user: req.user._id }).select("date");
-    const currentStreak = computeCurrentStreak(workouts);
+    const workouts = await Workout.find({ user: req.user._id }).select("date createdAt");
+    const currentStreak = computeCurrentStreak(workouts, {
+      tzOffsetMinutes: parseTzOffset(req.query.tzOffset),
+    });
     res.status(200).json({ currentStreak });
   } catch (error) {
     console.error(error);

@@ -25,9 +25,9 @@ import { formatDate, dateKey } from "../utils/dateUtils";
 import {
   buildSessionSummaries,
   computeMuscleBreakdown,
-  computeCurrentStreak,
   isCardioEntry,
 } from "../utils/workoutUtils";
+import { computeRestAwareStreak, trainedDayKeys } from "../utils/activityStates";
 import { prHistory, estimate1RM } from "../utils/strengthUtils";
 import {
   summarizeMuscleGroupSplit,
@@ -157,7 +157,7 @@ function Analytics() {
   const overall = useMemo(() => getOverallProgression(workouts), [workouts]);
   const availableMuscles = useMemo(() => getAvailableMuscles(workouts), [workouts]);
   const insightsData = useMemo(() => getInsights(workouts), [workouts]);
-  const currentStreak = useMemo(() => computeCurrentStreak(workouts), [workouts]);
+  const currentStreak = useMemo(() => computeRestAwareStreak(trainedDayKeys(workouts)), [workouts]);
 
   const consistency = useMemo(
     () => getConsistency(strengthSessions, overall.summary.firstWorkoutDate, overall.summary.latestWorkoutDate),

@@ -46,7 +46,8 @@ import { getWorkouts } from "../services/workoutService";
 import { getGoals } from "../services/goalService";
 import { getPlannedWorkouts } from "../services/plannedWorkoutService";
 import { getDailySteps, setDailySteps } from "../services/dailyStepsService";
-import { getSessionBadges, getLongestStreakEver } from "../progression/liveWorkoutEngine";
+import { getSessionBadges } from "../progression/liveWorkoutEngine";
+import { computeLongestRestAwareStreak, trainedDayKeys } from "../utils/activityStates";
 import { generateReminders } from "../reminders/reminderEngine";
 import { generateNotifications } from "../services/notificationService";
 import { getCardioOverview } from "../progression/cardioProgressionEngine";
@@ -878,6 +879,7 @@ function Dashboard() {
   const hasAppliedPlannedWorkoutDeepLink = useRef(false);
 
   const todayDateKey = getTodayDateKey();
+  const latestStreakRef = useRef(0);
   const [todaySteps, setTodaySteps] = useState(null);
   const [stepsEditing, setStepsEditing] = useState(false);
   const [stepsInput, setStepsInput] = useState("");
@@ -914,6 +916,7 @@ function Dashboard() {
         recentSessionsRes,
       ] = summaryData;
 
+      latestStreakRef.current = streak.data.currentStreak;
       setMuscleWorkouts(workoutsRes.data);
 
       const notificationCandidates = generateReminders({
@@ -1043,7 +1046,7 @@ function Dashboard() {
           durationMinutes: localSummary.durationMinutes,
           setCount: localSummary.setCount,
         }),
-        currentStreak: computeCurrentStreak(freshWorkouts),
+        currentStreak: latestStreakRef.current,
       });
     }
   };
@@ -1199,7 +1202,7 @@ function Dashboard() {
     return thisWeek - lastWeek;
   })();
 
-  const longestStreakEver = getLongestStreakEver(muscleWorkouts);
+  const longestStreakEver = computeLongestRestAwareStreak(trainedDayKeys(muscleWorkouts));
   const showLongestStreakFallback = stats.currentStreak === 0 && longestStreakEver > 0;
 
   const avgSessionDurationValue =

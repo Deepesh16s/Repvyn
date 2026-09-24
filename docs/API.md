@@ -52,7 +52,7 @@ All `GET`, all `JWT`, no body. Every value is computed from the caller's own wor
 | Endpoint | Purpose |
 |---|---|
 | `/personal-records` | Heaviest set ever logged per exercise |
-| `/current-streak` | Current consecutive-day workout streak |
+| `/current-streak` | Current rest-aware streak, in days. A day counts if it was trained or covered by rest (up to 3 per week that has a workout, none for a week with no workout); the run ends at the first day that is confirmed missed, and today is not held against you until it is over. Query: `tzOffset` (minutes, as returned by `Date.getTimezoneOffset()`) so days follow the caller's clock; without it days follow UTC. The same rule feeds the streak goal and the public profile. |
 | `/top-muscle` | Most-trained muscle group by total sets |
 | `/top-exercise` | Most-logged exercise by session count |
 | `/calendar-workouts` | Every workout, populated, for calendar rendering |

@@ -1,5 +1,6 @@
 
 const { GOAL_PERIODS, CARDIO_SESSION_METRIC } = require("../constants/goalTypes");
+const { computeRestAwareStreak, dayKeyAt } = require("./restAwareStreak");
 
 const startOfWeek = (date = new Date()) => {
   const d = new Date(date);
@@ -141,28 +142,11 @@ const getAverageSessionDurationOfRecentSessions = (workouts, count = 5) => {
   return total / durations.length;
 };
 
-const computeCurrentStreak = (workouts) => {
+const computeCurrentStreak = (workouts, { now = new Date(), tzOffsetMinutes = 0 } = {}) => {
   if (!workouts.length) return 0;
 
-  const dateStrings = new Set(
-    workouts.map((w) => {
-      const d = new Date(w.date || w.createdAt);
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    })
-  );
-
-  const cursor = new Date();
-  cursor.setHours(0, 0, 0, 0);
-  let streak = 0;
-
-  while (true) {
-    const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(cursor.getDate()).padStart(2, "0")}`;
-    if (!dateStrings.has(key)) break;
-    streak++;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-
-  return streak;
+  const trainedKeys = new Set(workouts.map((w) => dayKeyAt(w.date || w.createdAt, tzOffsetMinutes)));
+  return computeRestAwareStreak(trainedKeys, dayKeyAt(now, tzOffsetMinutes));
 };
 
 const buildDailyCardioValueMap = (matchingCardio, metric) => {

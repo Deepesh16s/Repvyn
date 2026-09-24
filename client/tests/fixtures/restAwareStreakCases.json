@@ -1,0 +1,76 @@
+[
+  {
+    "name": "no workouts at all",
+    "now": "2026-09-23",
+    "trained": [],
+    "current": 0,
+    "longest": 0
+  },
+  {
+    "name": "trained today only",
+    "now": "2026-09-23",
+    "trained": ["2026-09-23"],
+    "current": 1,
+    "longest": 1
+  },
+  {
+    "name": "trained Monday and Tuesday, nothing yet on Wednesday: the day is covered by rest, so the streak survives",
+    "now": "2026-09-23",
+    "trained": ["2026-09-21", "2026-09-22"],
+    "current": 3,
+    "longest": 3
+  },
+  {
+    "name": "five straight days ending yesterday, plus today's rest",
+    "now": "2026-09-23",
+    "trained": ["2026-09-18", "2026-09-19", "2026-09-20", "2026-09-21", "2026-09-22"],
+    "current": 6,
+    "longest": 6
+  },
+  {
+    "name": "an established four-on three-off routine keeps one unbroken streak across weeks",
+    "now": "2026-09-23",
+    "trained": [
+      "2026-09-07", "2026-09-08", "2026-09-09", "2026-09-10",
+      "2026-09-14", "2026-09-15", "2026-09-16", "2026-09-17",
+      "2026-09-21", "2026-09-22"
+    ],
+    "current": 17,
+    "longest": 17
+  },
+  {
+    "name": "a week with only one workout runs out of rest days and breaks the earlier run",
+    "now": "2026-09-23",
+    "trained": ["2026-09-14", "2026-09-21"],
+    "current": 3,
+    "longest": 4
+  },
+  {
+    "name": "the morning after training reads 1, not 0, even though today has no workout yet",
+    "now": "2026-09-27",
+    "trained": ["2026-09-21", "2026-09-26"],
+    "current": 1,
+    "longest": 4
+  },
+  {
+    "name": "one workout early in the week and nothing since ends the streak",
+    "now": "2026-09-27",
+    "trained": ["2026-09-21"],
+    "current": 0,
+    "longest": 4
+  },
+  {
+    "name": "inactive for more than a week: later weeks with no workout earn no rest",
+    "now": "2026-09-23",
+    "trained": ["2026-09-07"],
+    "current": 0,
+    "longest": 4
+  },
+  {
+    "name": "days before the first workout never count",
+    "now": "2026-09-23",
+    "trained": ["2026-09-22"],
+    "current": 2,
+    "longest": 2
+  }
+]

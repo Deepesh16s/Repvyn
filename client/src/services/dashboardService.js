@@ -2,7 +2,8 @@ import api from "./api";
 
 export const getSessionSummary = () => api.get("/dashboard/session-summary");
 
-export const getCurrentStreak = () => api.get("/dashboard/current-streak");
+export const getCurrentStreak = () =>
+  api.get("/dashboard/current-streak", { params: { tzOffset: new Date().getTimezoneOffset() } });
 
 export const getTopExercise = () => api.get("/dashboard/top-exercise");
 
