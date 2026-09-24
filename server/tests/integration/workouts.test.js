@@ -99,3 +99,98 @@ describe("GET /api/workouts", () => {
     expect(res.body.some((w) => w.sessionId === "b-1")).toBe(false);
   });
 });
+
+describe("PUT /api/workouts/:id keeps Strength PR goals in step with the edit", () => {
+  const Goal = require("../../models/Goal");
+
+  async function setup() {
+    const user = await createUser();
+    const [bench, squat] = await seedExercisesFor(user, { count: 2 });
+    const api = await authed(user);
+    const logged = await api("post", "/api/workouts/session").send({
+      sessionId: "pr-session",
+      sessionDuration: 45,
+      sessionType: "Push",
+      exercises: [{ exercise: bench._id, workoutSets: [{ weight: 100, reps: 5 }] }],
+    });
+    const workoutId = logged.body.workouts[0]._id;
+    const benchGoal = await Goal.create({
+      user: user._id,
+      title: "Bench 100",
+      type: "Strength PR",
+      target: 100,
+      unit: "kg",
+      exercise: bench._id,
+      current: 100,
+      status: "Completed",
+    });
+    const squatGoal = await Goal.create({
+      user: user._id,
+      title: "Squat 150",
+      type: "Strength PR",
+      target: 150,
+      unit: "kg",
+      exercise: squat._id,
+      current: 0,
+      status: "In Progress",
+    });
+    return { api, workoutId, benchGoal, squatGoal, squat };
+  }
+
+  it("lowers the PR goal when the best set is edited down (typo fix)", async () => {
+    const { api, workoutId, benchGoal } = await setup();
+
+    const res = await api("put", `/api/workouts/${workoutId}`).send({ workoutSets: [{ weight: 60, reps: 5 }] });
+    expect(res.status).toBe(200);
+
+    const goal = await Goal.findById(benchGoal._id);
+    expect(goal.current).toBe(60);
+    expect(goal.status).toBe("In Progress");
+  });
+
+  it("moves the lift off the old exercise's PR goal when the exercise is changed", async () => {
+    const { api, workoutId, benchGoal, squatGoal, squat } = await setup();
+
+    const res = await api("put", `/api/workouts/${workoutId}`).send({ exercise: squat._id });
+    expect(res.status).toBe(200);
+
+    expect((await Goal.findById(benchGoal._id)).current).toBe(0);
+    expect((await Goal.findById(squatGoal._id)).current).toBe(100);
+  });
+});
+
+describe("GET /api/workouts paging bounds", () => {
+  async function userWithWorkouts(count) {
+    const user = await createUser();
+    const [exercise] = await seedExercisesFor(user, { count: 1 });
+    await Workout.insertMany(
+      Array.from({ length: count }, (_, i) => ({
+        user: user._id,
+        exercise: exercise._id,
+        workoutSets: [{ weight: 10, reps: 10 }],
+        sessionId: `s-${i}`,
+      }))
+    );
+    return authed(user);
+  }
+
+  it("treats limit=0 as the default page size, not Mongo's unlimited", async () => {
+    const api = await userWithWorkouts(12);
+    const res = await api("get", "/api/workouts?limit=0");
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(10);
+  });
+
+  it("falls back to sane values for non-numeric page/limit instead of erroring", async () => {
+    const api = await userWithWorkouts(3);
+    const res = await api("get", "/api/workouts?page=abc&limit=xyz");
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(3);
+  });
+
+  it("rejects an invalid date range with 400", async () => {
+    const api = await userWithWorkouts(1);
+    const res = await api("get", "/api/workouts?start=not-a-date&end=2026-01-01");
+    expect(res.status).toBe(400);
+  });
+});

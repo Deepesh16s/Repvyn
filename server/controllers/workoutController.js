@@ -26,6 +26,7 @@ const {
 
 const NOTE_MAX_LENGTH = 500;
 const SESSION_NOTE_MAX_LENGTH = 1000;
+const MAX_WORKOUTS_PAGE_SIZE = 5000;
 
 function describeCompletedSession(sessionType, customSessionType) {
   if (!sessionType) return "completed a workout";
@@ -296,16 +297,23 @@ exports.createWorkoutSession = async (req, res) => {
 
 exports.getWorkouts = async (req, res) => {
   try {
-    const { page = 1, limit = 10, start, end } = req.query;
+    const { start, end } = req.query;
+    const page = Math.max(Math.floor(Number(req.query.page)) || 1, 1);
+    const limit = Math.min(Math.max(Math.floor(Number(req.query.limit)) || 10, 1), MAX_WORKOUTS_PAGE_SIZE);
 
     let query = {
       user: req.user._id,
     };
 
     if (start && end) {
+      const startDate = new Date(start);
+      const endDate = new Date(end);
+      if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+        return res.status(400).json({ message: "start and end must be valid dates" });
+      }
       query.createdAt = {
-        $gte: new Date(start),
-        $lte: new Date(end),
+        $gte: startDate,
+        $lte: endDate,
       };
     }
 
@@ -313,7 +321,7 @@ exports.getWorkouts = async (req, res) => {
       .populate("exercise")
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
-      .limit(Number(limit));
+      .limit(limit);
 
     res.status(200).json(workouts);
   } catch (error) {
@@ -384,6 +392,10 @@ exports.updateWorkout = async (req, res) => {
         updatedWorkout.exercise,
         updatedWorkout.workoutSets
       );
+      await recalculateGoalsForExercises(req.user._id, [
+        workout.exercise,
+        updatedWorkout.exercise,
+      ]);
     }
 
     res.status(200).json(updatedWorkout);
