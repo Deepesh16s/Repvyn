@@ -4,6 +4,7 @@ const Message = require("../models/Message");
 const User = require("../models/User");
 const Follow = require("../models/Follow");
 const Block = require("../models/Block");
+const Notification = require("../models/Notification");
 const { toPublicUser } = require("../utils/publicUser");
 const { normalize: normalizeUsername } = require("../utils/username");
 const { notifyUser } = require("../realtime/chatSocket");
@@ -29,11 +30,22 @@ function truncatePreview(body) {
   return body.length > PREVIEW_LENGTH ? `${body.slice(0, PREVIEW_LENGTH)}…` : body;
 }
 
+const MUTUAL_FOLLOW_REQUIRED_MESSAGE = "You need to follow each other to message this user";
+
+async function meetsPrivateAccountRule(viewerId, recipient) {
+  if (recipient.profileVisibility !== "private") return true;
+  const [viewerFollowsRecipient, recipientFollowsViewer] = await Promise.all([
+    Follow.exists({ follower: viewerId, following: recipient._id }),
+    Follow.exists({ follower: recipient._id, following: viewerId }),
+  ]);
+  return !!viewerFollowsRecipient && !!recipientFollowsViewer;
+}
+
 async function loadOwnedConversation(conversationId, viewerId, { populate = false } = {}) {
   if (!isValidObjectId(conversationId)) return { error: 400, message: "Invalid conversation ID" };
 
   let query = Conversation.findById(conversationId);
-  if (populate) query = query.populate("participants", "username name picture");
+  if (populate) query = query.populate("participants", "username name picture profileVisibility");
   const conversation = await query;
 
   if (!conversation) return { error: 404, message: "Conversation not found" };
@@ -128,16 +140,8 @@ exports.createConversation = async (req, res) => {
       return res.status(403).json({ message: "Unable to start a conversation with this user" });
     }
 
-    if (target.profileVisibility === "private") {
-      const [viewerFollowsTarget, targetFollowsViewer] = await Promise.all([
-        Follow.exists({ follower: viewerId, following: target._id }),
-        Follow.exists({ follower: target._id, following: viewerId }),
-      ]);
-      if (!viewerFollowsTarget || !targetFollowsViewer) {
-        return res.status(403).json({
-          message: "You need to follow each other to message this user",
-        });
-      }
+    if (!(await meetsPrivateAccountRule(viewerId, target))) {
+      return res.status(403).json({ message: MUTUAL_FOLLOW_REQUIRED_MESSAGE });
     }
 
     const [low, high] = Conversation.canonicalPair(viewerId, target._id);
@@ -251,6 +255,9 @@ exports.sendMessage = async (req, res) => {
     if (other && (await isBlockedEitherWay(viewerId, other._id))) {
       return res.status(403).json({ message: "You can't message this user" });
     }
+    if (other && !(await meetsPrivateAccountRule(viewerId, other))) {
+      return res.status(403).json({ message: MUTUAL_FOLLOW_REQUIRED_MESSAGE });
+    }
 
     const body = typeof req.body.body === "string" ? req.body.body.trim() : "";
     if (!body) {
@@ -347,11 +354,24 @@ exports.deleteMessage = async (req, res) => {
       return res.status(403).json({ message: "You can only delete your own messages" });
     }
 
+    const deletedPreview = truncatePreview(target.body);
     target.deletedAt = new Date();
     target.body = "";
     await target.save();
 
+    const latest = await Message.findOne({ conversation: conversation._id, deletedAt: null })
+      .sort({ createdAt: -1 })
+      .select("body");
+    conversation.lastMessagePreview = latest ? truncatePreview(latest.body) : "";
+    await conversation.save();
+
     const other = otherParticipant(conversation, viewerId);
+    if (other) {
+      await Notification.updateMany(
+        { user: other, dedupeKey: `message:${conversation._id}:${viewerId}`, subtitle: deletedPreview },
+        { subtitle: null }
+      );
+    }
     if (other) {
       notifyUser(other, {
         type: "message:deleted",

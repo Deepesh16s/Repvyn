@@ -2,6 +2,7 @@ const request = require("supertest");
 const app = require("../../app");
 const Conversation = require("../../models/Conversation");
 const Message = require("../../models/Message");
+const Notification = require("../../models/Notification");
 const { connectTestDB, clearTestDB, disconnectTestDB } = require("../helpers/db");
 const { createUser, tokenFor } = require("../helpers/factories");
 
@@ -288,7 +289,7 @@ describe("Conversation / message IDOR checks", () => {
 
   it("a participant can send and read messages in their own conversation", async () => {
     const a = await createUser();
-    const b = await createUser();
+    const b = await createUser({ profileVisibility: "public" });
     const conversation = await createConversationBetween(a, b);
 
     const sendRes = await authed(a)("post", `/api/conversations/${conversation._id}/messages`).send({ body: "hi" });
@@ -335,5 +336,47 @@ describe("Conversation / message IDOR checks", () => {
 
     const allowedAttempt = await authed(requester)("post", "/api/conversations").send({ username: target.username });
     expect(allowedAttempt.status).toBe(200);
+  });
+
+  it("stops sends into an existing conversation once the private recipient is no longer a mutual follow", async () => {
+    const target = await createUser({ profileVisibility: "private" });
+    const sender = await createUser({ profileVisibility: "public" });
+    await authed(sender)("post", `/api/users/${target.username}/follow`);
+    await authed(target)("post", `/api/users/${sender.username}/accept-follow-request`);
+    await authed(target)("post", `/api/users/${sender.username}/follow`);
+
+    const convo = await authed(sender)("post", "/api/conversations").send({ username: target.username });
+    const url = `/api/conversations/${convo.body._id}/messages`;
+    expect((await authed(sender)("post", url).send({ body: "while mutual" })).status).toBe(201);
+
+    await authed(target)("delete", `/api/users/${sender.username}/follow`);
+
+    const res = await authed(sender)("post", url).send({ body: "after unfollow" });
+    expect(res.status).toBe(403);
+    expect(await Message.countDocuments({ conversation: convo.body._id })).toBe(1);
+  });
+
+  it("deleting a message scrubs its text from the recipient's notification and the conversation preview", async () => {
+    const a = await createUser({ profileVisibility: "public" });
+    const b = await createUser({ profileVisibility: "public" });
+    const conversation = await createConversationBetween(a, b);
+    const url = `/api/conversations/${conversation._id}/messages`;
+    const remove = (id) => authed(a)("delete", `/api/conversations/${conversation._id}/messages/${id}`);
+    const preview = async () =>
+      (await authed(b)("get", "/api/conversations")).body.conversations[0].lastMessagePreview;
+
+    const secret = await authed(a)("post", url).send({ body: "oops, secret" });
+    await vi.waitFor(async () => {
+      expect(await Notification.findOne({ user: b._id, subtitle: "oops, secret" })).not.toBeNull();
+    });
+    expect((await remove(secret.body._id)).status).toBe(200);
+    expect(await Notification.countDocuments({ user: b._id, subtitle: "oops, secret" })).toBe(0);
+    expect(await preview()).toBe("");
+
+    await authed(a)("post", url).send({ body: "kept" });
+    const latest = await authed(a)("post", url).send({ body: "regretted" });
+    expect(await preview()).toBe("regretted");
+    await remove(latest.body._id);
+    expect(await preview()).toBe("kept");
   });
 });
