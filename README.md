@@ -63,7 +63,7 @@ Repvyn/
     ├── config/db.js            Mongoose connection
     ├── routes/                  One file per resource, mounted under /api/*
     ├── controllers/               Request handlers
-    ├── middleware/                 protect (JWT), validateObjectId, auth rate limiters
+    ├── middleware/                 protect (JWT + token version), validateObjectId, auth and API rate limiters, request operator guard
     ├── models/                      Mongoose schemas
     ├── utils/                        Business logic shared across controllers (goal recalculation, notification service, planned-workout recurrence, push delivery)
     ├── constants/                     Shared enums (mirrors client/src/constants where the same concept exists on both sides)
@@ -112,7 +112,8 @@ Full templates: [`server/.env.example`](server/.env.example), [`client/.env.exam
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Yes (for profile pictures / physique posts) | From the [Cloudinary console](https://console.cloudinary.com); without these, image upload/removal fails with a server error, everything else keeps working |
 | `PORT` | No (default 5000) | API port |
 | `NODE_ENV` | No | `production` enables strict CORS and disables the dev request logger |
-| `AUTH_RATE_LIMIT_*`, `AUTH_FORGOT_PASSWORD_RATE_LIMIT_*` | No | Override the default auth rate limits |
+| `AUTH_RATE_LIMIT_*`, `LOGIN_RATE_LIMIT_*`, `LOGIN_ACCOUNT_RATE_LIMIT_*`, `GOOGLE_LOGIN_RATE_LIMIT_*`, `AUTH_FORGOT_PASSWORD_RATE_LIMIT_*`, `AUTH_RESET_PASSWORD_RATE_LIMIT_*` | No | Override the default sign-up, login (failed attempts only), Google sign-in, and password-reset rate limits |
+| `API_USER_RATE_LIMIT_*`, `API_ANON_RATE_LIMIT_*`, `HEAVY_READ_RATE_LIMIT_*`, `HEALTH_SYNC_RATE_LIMIT_*`, `NOTIFICATION_GENERATE_RATE_LIMIT_*`, `PASSWORD_CHANGE_RATE_LIMIT_*`, `ACCOUNT_DELETION_RATE_LIMIT_*` | No | Override the global per-user / per-address API budget and the tighter limits on expensive reads, health sync, notification generation, password change, and account deletion |
 | `PHYSIQUE_POST_RATE_LIMIT_*`, `PHYSIQUE_LIKE_RATE_LIMIT_*`, `PHYSIQUE_COMMENT_RATE_LIMIT_*`, `PHYSIQUE_REACTION_RATE_LIMIT_*` | No | Override the default physique-post/like/comment/reaction rate limits (keyed per authenticated user, not per IP) |
 | `FOLLOW_ACTION_RATE_LIMIT_*`, `BLOCK_ACTION_RATE_LIMIT_*`, `REPORT_RATE_LIMIT_*` | No | Override the default follow/block and report rate limits (keyed per authenticated user, not per IP) |
 
@@ -130,10 +131,10 @@ Any reachable MongoDB deployment works — a local `mongod`, or an Atlas free-ti
 
 ### Authentication
 
-Two independent sign-in paths, both issuing the same JWT (`Authorization: Bearer <token>`, 7-day expiry, stored client-side in `localStorage`):
+Two independent sign-in paths, both issuing the same JWT (`Authorization: Bearer <token>`, 7-day expiry, stored client-side in `localStorage`). Each token carries the account's `tokenVersion`; changing or resetting a password bumps it, which invalidates every earlier token and closes that account's open chat sockets, and a password change hands the current device a fresh token. Deleting an account requires re-authentication (the password, or a fresh Google credential for Google-only accounts):
 
 - **Email/password** — bcrypt-hashed (`POST /api/auth/register`, `/login`), plus forgot/reset password via a time-limited emailed token.
-- **Google Sign-In** — the client obtains an ID token via `@react-oauth/google`; the server verifies it with `google-auth-library` (`POST /api/auth/google`) and creates the user on first sign-in.
+- **Google Sign-In** — the client obtains an ID token via `@react-oauth/google`; the server verifies it with `google-auth-library` (`POST /api/auth/google`) and creates the user on first sign-in. New password sign-ups start unverified; if the same email later signs in with Google, the account is handed to the Google owner (verified, password cleared, earlier sessions revoked), which closes the pre-registration takeover where someone registers another person's email first. Accounts that predate this are treated as verified and left alone.
 
 **Status:** email/password auth, forgot/reset password, and every other page listed under Known Limitations below — including the current dark-themed Landing/Login/Register redesign — have been verified live in a real browser across desktop and mobile viewports, in both light and dark theme. Google Sign-In's server-side token verification is correct by code review and the button renders/behaves correctly in the UI, but the actual consent-screen round trip is still blocked in this environment — it requires the deployed origin to be registered in Google Cloud Console's Authorized JavaScript origins, which can only be done once a real production URL exists.
 
