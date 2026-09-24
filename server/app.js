@@ -6,6 +6,7 @@ const rejectOperatorKeys = require("./middleware/rejectOperatorKeys");
 const { apiLimiter } = require("./middleware/apiRateLimiters");
 
 const isProduction = process.env.NODE_ENV === "production";
+const HEALTH_SYNC_PATH = "/api/health/sync";
 
 const authRoutes = require("./routes/authRoutes");
 const exerciseRoutes = require("./routes/exerciseRoutes");
@@ -34,7 +35,10 @@ app.use(helmet({ contentSecurityPolicy: false }));
 app.use(compression());
 
 app.use(cors(isProduction ? { origin: process.env.CLIENT_URL } : {}));
-app.use(express.json());
+app.use("/api", apiLimiter);
+
+const parseJson = express.json();
+app.use((req, res, next) => (req.path === HEALTH_SYNC_PATH ? next() : parseJson(req, res, next)));
 app.use((req, res, next) => {
   if (req.body === undefined) req.body = {};
   next();
@@ -54,8 +58,6 @@ if (!isProduction && process.env.NODE_ENV !== "test") {
 app.get("/", (req, res) => {
   res.send("Repvyn Backend Running...");
 });
-
-app.use("/api", apiLimiter);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/exercises", exerciseRoutes);

@@ -4,6 +4,8 @@ const HealthSample = require("../models/HealthSample");
 const HealthSleepSession = require("../models/HealthSleepSession");
 const { HEALTH_SLEEP_RECORD_TYPE } = require("../constants/healthRecordTypes");
 
+const MAX_SYNC_BATCH_SIZE = 500;
+
 exports.getConnectionStatus = async (req, res) => {
   try {
     const connection = await HealthConnection.findOne({ user: req.user._id, connected: true });
@@ -95,6 +97,12 @@ exports.syncBatch = async (req, res) => {
 
     if (!Array.isArray(records) || !Array.isArray(deletedRecordIds)) {
       return res.status(400).json({ message: "records and deletedRecordIds must be arrays" });
+    }
+
+    if (records.length > MAX_SYNC_BATCH_SIZE || deletedRecordIds.length > MAX_SYNC_BATCH_SIZE) {
+      return res.status(413).json({
+        message: `A sync batch can contain at most ${MAX_SYNC_BATCH_SIZE} records and ${MAX_SYNC_BATCH_SIZE} deletions`,
+      });
     }
 
     let upserted = 0;
