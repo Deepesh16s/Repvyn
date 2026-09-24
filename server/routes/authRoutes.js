@@ -21,24 +21,29 @@ const {
 
 const { protect } = require("../middleware/authMiddleware");
 const {
-  loginRegisterLimiter,
+  registerLimiter,
+  loginLimiter,
+  loginAccountLimiter,
+  googleLoginLimiter,
   forgotPasswordLimiter,
+  resetPasswordLimiter,
   usernameCheckLimiter,
 } = require("../middleware/authRateLimiters");
+const { passwordChangeLimiter, accountDeletionLimiter } = require("../middleware/apiRateLimiters");
 const uploadProfilePictureMiddleware = require("../middleware/uploadProfilePicture");
 
-router.post("/register", loginRegisterLimiter, registerUser);
-router.post("/login", loginRegisterLimiter, loginUser);
-router.post("/google", loginRegisterLimiter, googleLogin);
+router.post("/register", registerLimiter, registerUser);
+router.post("/login", loginLimiter, loginAccountLimiter, loginUser);
+router.post("/google", googleLoginLimiter, googleLogin);
 router.post("/forgot-password", forgotPasswordLimiter, forgotPassword);
-router.post("/reset-password/:token", resetPassword);
+router.post("/reset-password/:token", resetPasswordLimiter, resetPassword);
 
 router.get("/me", protect, getMe);
 router.put("/profile", protect, updateProfile);
 router.post("/profile-picture", protect, uploadProfilePictureMiddleware, uploadProfilePicture);
 router.delete("/profile-picture", protect, deleteProfilePicture);
-router.put("/change-password", protect, changePassword);
-router.delete("/account", protect, deleteAccount);
+router.put("/change-password", protect, passwordChangeLimiter, changePassword);
+router.delete("/account", protect, accountDeletionLimiter, deleteAccount);
 
 router.get("/username-available", usernameCheckLimiter, checkUsernameAvailable);
 router.put("/username", protect, updateUsername);

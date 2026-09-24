@@ -12,14 +12,17 @@ const {
 } = require("../controllers/dashboardController");
 
 const { protect } = require("../middleware/authMiddleware");
+const { heavyReadLimiter } = require("../middleware/apiRateLimiters");
 
-router.get("/personal-records", protect, getPersonalRecords);
-router.get("/current-streak", protect, getCurrentStreak);
-router.get("/top-muscle", protect, getTopMuscle);
-router.get("/top-exercise", protect, getTopExercise);
-router.get("/calendar-workouts", protect, getCalendarWorkouts);
+router.use(protect, heavyReadLimiter);
 
-router.get("/session-summary", protect, getSessionSummary);
-router.get("/recent-sessions", protect, getRecentSessions);
+router.get("/personal-records", getPersonalRecords);
+router.get("/current-streak", getCurrentStreak);
+router.get("/top-muscle", getTopMuscle);
+router.get("/top-exercise", getTopExercise);
+router.get("/calendar-workouts", getCalendarWorkouts);
+
+router.get("/session-summary", getSessionSummary);
+router.get("/recent-sessions", getRecentSessions);
 
 module.exports = router;

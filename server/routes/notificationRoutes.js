@@ -12,10 +12,11 @@ const {
 } = require("../controllers/notificationController");
 
 const { protect } = require("../middleware/authMiddleware");
+const { notificationGenerateLimiter } = require("../middleware/apiRateLimiters");
 const validateObjectId = require("../middleware/validateObjectId");
 
 router.get("/", protect, getNotifications);
-router.post("/generate", protect, generateFromClient);
+router.post("/generate", protect, notificationGenerateLimiter, generateFromClient);
 router.put("/read-all", protect, markAllRead);
 router.put("/clear-read", protect, clearRead);
 router.put("/:id/read", protect, validateObjectId(), markRead);

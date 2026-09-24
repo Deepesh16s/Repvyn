@@ -3,6 +3,7 @@ const cors = require("cors");
 const helmet = require("helmet");
 const compression = require("compression");
 const rejectOperatorKeys = require("./middleware/rejectOperatorKeys");
+const { apiLimiter } = require("./middleware/apiRateLimiters");
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -53,6 +54,8 @@ if (!isProduction && process.env.NODE_ENV !== "test") {
 app.get("/", (req, res) => {
   res.send("Repvyn Backend Running...");
 });
+
+app.use("/api", apiLimiter);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/exercises", exerciseRoutes);
