@@ -383,3 +383,58 @@ describe("Likes", () => {
     expect(res.body.likeCount).toBe(0);
   });
 });
+
+describe("Public profile activity respects physique post visibility", () => {
+  async function seed() {
+    const owner = await createUser({ profileVisibility: "public" });
+    const publicPost = await PhysiquePost.create({
+      user: owner._id,
+      imageUrl: "https://example.test/pub.jpg",
+      imageAssetId: "pub-asset",
+      caption: "public caption",
+      visibility: "public",
+    });
+    const privatePost = await PhysiquePost.create({
+      user: owner._id,
+      imageUrl: "https://example.test/fol.jpg",
+      imageAssetId: "fol-asset",
+      caption: "followers-only caption",
+      visibility: "followers",
+    });
+    await Activity.create({ user: owner._id, type: "physiquePost", title: "shared a physique update", subtitle: "public caption", refId: publicPost._id });
+    await Activity.create({ user: owner._id, type: "physiquePost", title: "shared a physique update", subtitle: "followers-only caption", refId: privatePost._id });
+    await Activity.create({ user: owner._id, type: "workoutCompleted", title: "completed a workout" });
+    return owner;
+  }
+
+  const subtitles = (res) => res.body.activity.map((a) => a.subtitle);
+
+  it("hides a followers-only post's activity (and caption) from anonymous viewers and non-followers", async () => {
+    const owner = await seed();
+    const stranger = await createUser();
+
+    for (const res of [
+      await request(app).get(`/api/users/${owner.username}/activity`),
+      await authed(stranger)("get", `/api/users/${owner.username}/activity`),
+    ]) {
+      expect(res.status).toBe(200);
+      expect(res.body.activity).toHaveLength(2);
+      expect(subtitles(res)).toContain("public caption");
+      expect(subtitles(res)).not.toContain("followers-only caption");
+    }
+  });
+
+  it("shows it to followers and to the owner", async () => {
+    const owner = await seed();
+    const follower = await createUser();
+    await follow(authed(follower), owner.username);
+
+    for (const res of [
+      await authed(follower)("get", `/api/users/${owner.username}/activity`),
+      await authed(owner)("get", `/api/users/${owner.username}/activity`),
+    ]) {
+      expect(res.body.activity).toHaveLength(3);
+      expect(subtitles(res)).toContain("followers-only caption");
+    }
+  });
+});

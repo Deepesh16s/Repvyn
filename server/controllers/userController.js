@@ -5,6 +5,7 @@ const Block = require("../models/Block");
 const Workout = require("../models/workout");
 const Badge = require("../models/Badge");
 const Activity = require("../models/Activity");
+const PhysiquePost = require("../models/PhysiquePost");
 const { normalize: normalizeUsername, validateFormat: validateUsernameFormat } = require("../utils/username");
 const { escapeRegExp } = require("../utils/userInput");
 const { toPublicUser: basePublicUser } = require("../utils/publicUser");
@@ -553,7 +554,21 @@ exports.getActivity = async (req, res) => {
       return res.status(403).json({ message: "This account is private" });
     }
 
-    const activity = await Activity.find({ user: target._id })
+    const query = { user: target._id };
+    const isSelf = viewerId && String(viewerId) === String(target._id);
+    const isFollower =
+      !isSelf && viewerId && !!(await Follow.exists({ follower: viewerId, following: target._id }));
+    if (!isSelf && !isFollower) {
+      const hiddenPosts = await PhysiquePost.find({
+        user: target._id,
+        visibility: { $ne: "public" },
+      }).select("_id");
+      if (hiddenPosts.length) {
+        query.$nor = [{ type: "physiquePost", refId: { $in: hiddenPosts.map((p) => p._id) } }];
+      }
+    }
+
+    const activity = await Activity.find(query)
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit);
