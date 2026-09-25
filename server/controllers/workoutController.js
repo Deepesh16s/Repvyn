@@ -345,8 +345,8 @@ exports.updateWorkout = async (req, res) => {
     }
 
     if (workout.user.toString() !== req.user._id.toString()) {
-      return res.status(401).json({
-        message: "Not authorized",
+      return res.status(404).json({
+        message: "Workout not found",
       });
     }
 
@@ -473,8 +473,8 @@ exports.deleteWorkout = async (req, res) => {
     }
 
     if (workout.user.toString() !== req.user._id.toString()) {
-      return res.status(401).json({
-        message: "Not authorized",
+      return res.status(404).json({
+        message: "Workout not found",
       });
     }
 

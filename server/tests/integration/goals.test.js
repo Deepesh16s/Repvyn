@@ -55,7 +55,10 @@ describe("Goals API", () => {
     expect(listRes.body.find((g) => g._id === created.body._id)).toBeUndefined();
 
     const updateRes = await intruderApi("put", `/api/goals/${created.body._id}`).send({ current: 999 });
-    expect(updateRes.status).toBe(401);
+    expect(updateRes.status).toBe(404);
+
+    const deleteRes = await intruderApi("delete", `/api/goals/${created.body._id}`);
+    expect(deleteRes.status).toBe(404);
   });
 
   describe("Weight Goal direction (real bug fix, end to end)", () => {

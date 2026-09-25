@@ -283,7 +283,7 @@ exports.updateGoal = async (req, res) => {
     const goal = await Goal.findById(req.params.id);
     if (!goal) return res.status(404).json({ message: "Goal not found" });
     if (goal.user.toString() !== req.user._id.toString()) {
-      return res.status(401).json({ message: "Not authorized" });
+      return res.status(404).json({ message: "Goal not found" });
     }
 
     const updates = {};
@@ -423,7 +423,7 @@ exports.deleteGoal = async (req, res) => {
     const goal = await Goal.findById(req.params.id);
     if (!goal) return res.status(404).json({ message: "Goal not found" });
     if (goal.user.toString() !== req.user._id.toString()) {
-      return res.status(401).json({ message: "Not authorized" });
+      return res.status(404).json({ message: "Goal not found" });
     }
     await Goal.findByIdAndDelete(req.params.id);
     res.status(200).json({ message: "Goal deleted successfully" });

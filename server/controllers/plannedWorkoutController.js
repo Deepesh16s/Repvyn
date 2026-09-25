@@ -35,7 +35,7 @@ const findOwnedOr404 = async (userId, id, res) => {
     return null;
   }
   if (doc.user.toString() !== userId.toString()) {
-    res.status(401).json({ message: "Not authorized" });
+    res.status(404).json({ message: "Planned workout not found" });
     return null;
   }
   return doc;

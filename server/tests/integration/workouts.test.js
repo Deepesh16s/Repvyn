@@ -194,3 +194,22 @@ describe("GET /api/workouts paging bounds", () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe("another user's workout", () => {
+  it("is reported as not found on edit and delete (not 401, which would sign the caller out)", async () => {
+    const owner = await createUser();
+    const intruder = await createUser();
+    const [exercise] = await seedExercisesFor(owner, { count: 1 });
+    const workout = await Workout.create({
+      user: owner._id,
+      exercise: exercise._id,
+      workoutSets: [{ weight: 10, reps: 10 }],
+      sessionId: "owner-1",
+    });
+    const api = await authed(intruder);
+
+    expect((await api("put", `/api/workouts/${workout._id}`).send({ workoutSets: [{ weight: 1, reps: 1 }] })).status).toBe(404);
+    expect((await api("delete", `/api/workouts/${workout._id}`)).status).toBe(404);
+    expect(await Workout.countDocuments({ _id: workout._id })).toBe(1);
+  });
+});
