@@ -15,10 +15,10 @@ exports.getAdvancedProgression = async (req, res) => {
     })
       .select("date workoutSets exercise sessionId")
       .populate("exercise", "name muscleGroup")
-      .sort({ date: 1 })
+      .sort({ date: -1 })
       .limit(MAX_WORKOUTS_SCANNED);
 
-    const analytics = getAdvancedProgressionAnalytics(workouts);
+    const analytics = getAdvancedProgressionAnalytics(workouts.reverse());
 
     res.status(200).json(analytics);
   } catch (error) {

@@ -1,8 +1,9 @@
 const request = require("supertest");
 const app = require("../../app");
 const Subscription = require("../../models/Subscription");
+const Workout = require("../../models/workout");
 const { connectTestDB, clearTestDB, disconnectTestDB } = require("../helpers/db");
-const { createUser, tokenFor } = require("../helpers/factories");
+const { createUser, tokenFor, seedExercisesFor } = require("../helpers/factories");
 
 beforeAll(connectTestDB);
 afterEach(clearTestDB);
@@ -81,4 +82,30 @@ describe("GET /api/progression/advanced entitlement", () => {
     const res = await api("get", `/api/progression/advanced?userId=${other._id}`);
     expect(res.status).toBe(200);
   });
+});
+
+describe("GET /api/progression/advanced scan cap", () => {
+  it("keeps the newest workouts when a heavy logger exceeds the scan cap", async () => {
+    const user = await createUser({ premiumTier: "premium" });
+    const [exercise] = await seedExercisesFor(user, { count: 1 });
+    const day = 86400000;
+    const entry = (daysAgo, sessionId) => ({
+      user: user._id,
+      exercise: exercise._id,
+      entryType: "strength",
+      workoutSets: [{ weight: 50, reps: 10 }],
+      date: new Date(Date.now() - daysAgo * day),
+      sessionId,
+    });
+    const oldEntries = Array.from({ length: 4000 }, (_, i) => entry(250, `old-${i}`));
+    const recentEntries = [1, 8, 15].map((daysAgo) => entry(daysAgo, `recent-${daysAgo}`));
+    await Workout.insertMany([...oldEntries, ...recentEntries], { ordered: false });
+
+    const api = await authed(user);
+    const res = await api("get", "/api/progression/advanced");
+
+    expect(res.status).toBe(200);
+    expect(res.body.volumeTrends.status).toBe("ok");
+    expect(res.body.volumeTrends.trainedWeekCount).toBe(4);
+  }, 60000);
 });
