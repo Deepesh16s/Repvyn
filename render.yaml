@@ -27,3 +27,9 @@ services:
         sync: false
       - key: VAPID_CONTACT_EMAIL
         sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
